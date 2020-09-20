@@ -29,19 +29,19 @@ int check_file(char* filename){
   }
 }
 
-void get_len_and_filename(int new_s, short int *len, char* name){
+void get_len_and_filename(int new_s, uint16_t *len, char* name){
   // recieve length of filename
-  int file_len;
-  if((file_len = recv(new_s, len, sizeof(*len), 0)) == -1 ){
+  uint16_t file_len;
+  if(recv(new_s, &file_len, sizeof(file_len), 0) < 0){
     perror("Error receiving file length");
     exit(1);
   }
-  uint16_t endianLen = ntohs(*len);
-  fprintf(stdout, "File length: %d\n", endianLen);
+	fprintf(stdout, "Old File Length: %d\n", file_len);
+  *len = ntohs(file_len);
+  fprintf(stdout, "File Name length: %d\n", *len);
   
   // recieve filename
-  int rlen;
-  if((rlen = recv(new_s, name, sizeof(name), 0)) == -1){
+  if(recv(new_s, name, sizeof(name), 0) < 0){
     perror("Error recieving file name");
     exit(1);
   }
@@ -51,7 +51,7 @@ void get_len_and_filename(int new_s, short int *len, char* name){
 void download(int new_s){
 
   char name[MAX_LINE];
-  short int len;
+  unsigned short len;
   get_len_and_filename(new_s, &len, name);
   
   if(check_file(name) == -1){
@@ -71,10 +71,11 @@ void download(int new_s){
 void upload(int new_s) {
 
   // Get Filename Length and Filename
-  char fname[MAX_LINE]; short int len;
+  char fname[MAX_LINE]; uint16_t len;
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment
+  fprintf(stdout, "Sending Acknowledgment\n");
   short int status = 0;
   if(send(new_s, &status, sizeof(status), 0) == -1) {
     perror("Server Send Error"); 
@@ -87,8 +88,10 @@ void upload(int new_s) {
     perror("Error receiving size of file");
     exit(1);
   }
+	fprintf(stdout, "File Size: %d\n", fsize);
 
   // Initialize File
+  fprintf(stdout, "Creating file: %s\n", fname);
   FILE * fp = fopen(fname, "w");
   if (!fp) {
     perror("Unable to create file");
@@ -212,7 +215,7 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "HEAD", 4)) {
 
         char name[MAX_LINE];
-        short int len;
+        unsigned short len;
         get_len_and_filename(new_s, &len, name);
         
         if(check_file(name)) {

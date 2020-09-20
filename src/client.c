@@ -11,8 +11,71 @@ rreutima, jquinn13, pbald
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <string.h>
+#include <sys/stat.h>
 
 #define MAX_LINE 4096
+
+/*
+ * @func   upload
+ * @desc   uploads file to server
+ * --
+ * @param  s      Socket number
+ * @param  fname  File name
+ */
+void upload(int s, char* fname) {
+
+	// Receive Server Acknowledgement
+	int ack;
+	if (recv(s, &ack, sizeof(ack), 0) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+
+	// Get File Information
+	struct stat fstat;
+	if (stat(fname, &fstat) < 0) {
+		fprintf(stderr, "Unable to gather file information\n");
+		return;
+	}
+
+	// Get File Size
+	int fsize = fstat.st_size;
+
+	// Send File Size
+	if(send(s, &fsize, sizeof(fsize), 0) == -1) {
+		perror("Client send error!");
+		exit(1);
+	}
+
+	// Open File
+	FILE *fp = fopen(fname, "r");
+	if (!fp) {
+		fprintf(stderr, "Unable to open file\n");
+	}
+
+	// Read Content and Send
+	char buff[BUFSIZ];
+	while (fsize != 0) {
+		// Read Content
+		int read = fread(buff, fsize, 1, fp);
+		if (read < 0) {
+			fprintf(stderr, "Error reading file\n");
+			return;
+		}
+		fsize -= read;
+
+		// Send Content
+		if(send(s, buff, read, 0) == -1) {
+			perror("Client send error!");
+			exit(1);
+		}
+	}
+
+	// Close File
+	fclose(fp);
+
+}
 
 int main(int argc, char * argv[]) {
   /* Variables */
@@ -66,7 +129,11 @@ int main(int argc, char * argv[]) {
   /* Client Shell: Send commands to server */
   while(fgets(buf, sizeof(buf), stdin)) {
 
+		// Grab Command, Name, and Length
     char* cmd = strtok(buf, " ");
+		char* name  = strtok(NULL, "\t\n\0 ");
+		uint16_t len   = strlen(name) - 1;
+		fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
     /* Send intial operation */
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
@@ -77,11 +144,9 @@ int main(int argc, char * argv[]) {
     /* Send command specific data */
     if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strcmp(cmd, "RMDIR") || !strcmp(cmd, "CD")) {
 
-      char* name  = strtok(NULL, cmd);
-      short len   = strlen(name) - 1;
-      u_int16_t l = htons(len);
-
       /* Send length of name */
+      u_int16_t l = htons(len);
+			fprintf(stdout, "Sending file name length: %d\n", l);
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
@@ -103,7 +168,7 @@ int main(int argc, char * argv[]) {
 
     /* UP */
     if(!strcmp(cmd, "UP")) {
-
+			upload(s, name);
     }
 
     /* DN */

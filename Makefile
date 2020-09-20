@@ -6,7 +6,7 @@ all: pg2server/myftpd pg2client/myftp
 
 clean:
 	@echo "Cleaning..."
-	@rm myftpd myftp src/*.o
+	@rm pg2server/myftpd pg2client/myftp src/*.o
 
 pg2client/myftp: src/client.o
 	@echo "Compiling Server"
