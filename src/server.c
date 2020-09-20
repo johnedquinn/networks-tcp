@@ -13,6 +13,7 @@ rreutima, jquinn13, pbald
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <dirent.h>
 
 #define MAX_LINE 4096
 #define MAX_PENDING 5
@@ -28,6 +29,20 @@ int check_file(char* filename){
     return -1;
   }
 }
+
+int is_directory(const char *path) {
+
+    struct stat path_stat;
+    if(stat(path, &path_stat) < 0)
+        return EXIT_FAILURE;
+
+    int isDir = S_ISDIR(path_stat.st_mode);
+    if(isDir)
+        return EXIT_SUCCESS;
+
+    return EXIT_FAILURE;
+}
+
 
 void get_len_and_filename(int new_s, uint16_t *len, char* name){
   // recieve length of filename
@@ -140,6 +155,47 @@ void upload(int new_s) {
     exit(1);
   }
   
+
+}
+
+void ls(int new_s){
+
+  // @TODO obtain listing of directory
+  char dirName[MAX_LINE];
+  unsigned short len;
+  get_len_and_filename(new_s, &len, dirName);
+
+  DIR* dir = opendir(dirName);
+  if(!dir) {
+    fprintf(stderr, "No directory exists with name %s\n ", dirName);
+    return;
+  }
+
+  // @TODO compute size of each file and sum
+  off_t dir_size;
+  for(struct dirent *entry = readdir(dir); entry; entry = readdir(dir)){
+    struct stat st;
+    fstat(entry->d_name, &st);
+    dir_size += st.st_size;
+  }
+  
+  // @TODO send size of directory listing
+  send(new_s, dir_size, sizeof(dir_size), 0);
+
+  FILE* fp;
+  char buf[BUFSIZ];
+  fp = popen("ls -l", "r");
+  if(!fp){
+    fprintf(stdout, "Unable to run popen on directory");
+    return;
+  }
+
+  // @TODO loop through and send directory listing
+  while(fgets(buf, sizeof(buf), fp) > 0){
+    send(new_s, buf, sizeof(buf), 0);
+  }
+
+  pclose(fp);
 
 }
 
