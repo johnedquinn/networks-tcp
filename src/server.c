@@ -205,6 +205,36 @@ void ls(int new_s){
 
 }
 
+void cd(int new_s){
+
+  char fname[MAX_LINE]; 
+  uint16_t len;
+  get_len_and_filename(new_s, &len, fname); 
+
+  // check if dir name exists or not
+  DIR* dir = opendir(fname);
+  
+
+    // if exists: 
+    if(dir){
+      FILE* fp = popen(fname, "r");
+
+      if(fp){
+      // successful change: send a 1
+
+      } else {
+      // unsuccessful change: send a -1
+
+      }
+    } 
+    else // dir does not exist
+      // send a -2
+
+
+
+
+}
+
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
@@ -355,6 +385,7 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
+        cd(new_s);
       } else if (!strncmp(buf, "QUIT", 4)) {
       } else {
         //@TODO: server_options();
