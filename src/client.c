@@ -77,7 +77,26 @@ void upload(int s, char* fname) {
 
 }
 
-int main(int argc, char * argv[]) {
+void ls(int s){ // ------------------------------------------------ LS 
+  // recieve directory size
+  printf("Running LS\n");
+  uint32_t size;
+	if (recv(s, &size, sizeof(size), 0) < 0) {
+		printf("Error Receiving directory size\n");
+		return;
+	}
+  printf("Directory size: %d\n", size);
+
+  int recv_size = 0;
+  char buf[BUFSIZ];
+  while((recv_size = recv(s, buf, sizeof(buf), 0)) > 0){
+    printf("%s", buf);
+  }
+  fflush(stdout);
+
+}
+
+int main(int argc, char * argv[]) { // ----------------------------- main
   /* Variables */
   struct hostent *hp;
   struct sockaddr_in sin;
@@ -129,12 +148,10 @@ int main(int argc, char * argv[]) {
   /* Client Shell: Send commands to server */
   while(fgets(buf, sizeof(buf), stdin)) {
 
-		// Grab Command, Name, and Length
+		// Grab Command
     char* cmd = strtok(buf, " ");
-		char* name  = strtok(NULL, "\t\n\0 ");
-		uint16_t len   = strlen(name) - 1;
-		fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
-
+    char* name;
+    uint16_t len;
     /* Send intial operation */
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
@@ -143,6 +160,11 @@ int main(int argc, char * argv[]) {
 
     /* Send command specific data */
     if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strcmp(cmd, "RMDIR") || !strcmp(cmd, "CD")) {
+      
+      // get file name and length for appropriate commands
+		  name  = strtok(NULL, "\t\n\0 ");
+		  len   = strlen(name) - 1;
+		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
       u_int16_t l = htons(len);
@@ -189,6 +211,13 @@ int main(int argc, char * argv[]) {
     /* MKDIR */
     else if(!strcmp(cmd, "MKDIR")) {
 
+    }
+
+    /* LS */ 
+    else if(!strcmp(cmd, "LS")){
+      // printf("Running LS command\n");
+      // fflush(stdout);
+      ls(s);
     }
 
     /* RMDIR */

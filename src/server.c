@@ -161,37 +161,45 @@ void upload(int new_s) {
 void ls(int new_s){
 
   // @TODO obtain listing of directory
-  char dirName[MAX_LINE];
-  unsigned short len;
-  get_len_and_filename(new_s, &len, dirName);
+  // char dirName[BUFSIZ];
+  // unsigned short len;
+  // get_len_and_filename(new_s, &len, dirName);
 
-  DIR* dir = opendir(dirName);
+  DIR* dir = opendir(".");
   if(!dir) {
-    fprintf(stderr, "No directory exists with name %s\n ", dirName);
+    fprintf(stdout, "Unable to open current directory\n");
     return;
   }
 
   // @TODO compute size of each file and sum
-  off_t dir_size;
+  uint32_t dir_size = 0;
+  fprintf(stdout, "Walking directory...\n");
   for(struct dirent *entry = readdir(dir); entry; entry = readdir(dir)){
     struct stat st;
-    fstat(entry->d_name, &st);
+    stat(entry->d_name, &st);
     dir_size += st.st_size;
   }
   
   // @TODO send size of directory listing
-  send(new_s, dir_size, sizeof(dir_size), 0);
+  fprintf(stdout, "Total directory size: %d\n", dir_size);
+  // fflush(stdout);
+  if(send(new_s, &dir_size, sizeof(dir_size), 0) < 0){
+    perror("Error sending directory size");
+  }
 
   FILE* fp;
   char buf[BUFSIZ];
   fp = popen("ls -l", "r");
   if(!fp){
-    fprintf(stdout, "Unable to run popen on directory");
+    fprintf(stdout, "Unable to run popen on directory\n");
+    fflush(stdout);
     return;
   }
 
   // @TODO loop through and send directory listing
+  printf("Sending directory listing...\n");
   while(fgets(buf, sizeof(buf), fp) > 0){
+    printf("%s", buf);
     send(new_s, buf, sizeof(buf), 0);
   }
 
@@ -280,6 +288,7 @@ int main(int argc, char* argv[]) {
         
       } else if (!strncmp(buf, "RM", 2)) {
       } else if (!strncmp(buf, "LS", 2)) {
+        ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
