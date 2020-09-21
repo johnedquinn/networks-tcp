@@ -41,8 +41,6 @@ int is_directory(const char *path) {
     return EXIT_FAILURE;
 }
 
-<<<<<<< HEAD
-=======
 int is_directory(const char *path) {
 
     struct stat path_stat;
@@ -56,7 +54,6 @@ int is_directory(const char *path) {
     return EXIT_FAILURE;
 }
 
->>>>>>> 763f69598f78c88c2b61ac29610f7b9e89f586e9
 
 void get_len_and_filename(int new_s, uint16_t *len, char* name){
   // recieve length of filename
@@ -220,10 +217,6 @@ void ls(int new_s){
   pclose(fp);
 
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 763f69598f78c88c2b61ac29610f7b9e89f586e9
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
