@@ -153,6 +153,7 @@ void cd(int new_s){
   int success = 1; int noexist = -2; int failure = -1;
     // if exists: 
     if(dir){
+      // try to change directory 
       FILE* fp = popen(fname, "r");
 
       if(fp){
