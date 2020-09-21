@@ -149,7 +149,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
   while(fgets(buf, sizeof(buf), stdin)) {
 
 		// Grab Command
-    char* cmd = strtok(buf, " ");
+    char* cmd = strtok(buf, " \n");
     char* name;
     uint16_t len;
     /* Send intial operation */
@@ -187,7 +187,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* Command specific client operations */
-
+    printf("Command: %s\n", cmd);
     /* UP */
     if(!strcmp(cmd, "UP")) {
 			upload(s, name);
@@ -243,7 +243,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* LS */ 
     else if(!strcmp(cmd, "LS")){
-      // printf("Running LS command\n");
+      printf("Running LS command\n");
       // fflush(stdout);
       ls(s);
     }
