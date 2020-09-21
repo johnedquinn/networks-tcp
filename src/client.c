@@ -149,7 +149,11 @@ int main(int argc, char * argv[]) { // ----------------------------- main
   while(fgets(buf, sizeof(buf), stdin)) {
 
 		// Grab Command
+<<<<<<< HEAD
     char* cmd = strtok(buf, " \n");
+=======
+    char* cmd = strtok(buf, " ");
+>>>>>>> 763f69598f78c88c2b61ac29610f7b9e89f586e9
     char* name;
     uint16_t len;
     /* Send intial operation */
@@ -243,7 +247,11 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* LS */ 
     else if(!strcmp(cmd, "LS")){
+<<<<<<< HEAD
       printf("Running LS command\n");
+=======
+      // printf("Running LS command\n");
+>>>>>>> 763f69598f78c88c2b61ac29610f7b9e89f586e9
       // fflush(stdout);
       ls(s);
     }
