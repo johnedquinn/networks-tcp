@@ -27,7 +27,7 @@ int check_file(char* filename){
   return 0;
 }
 
-void get_len_and_filename(int new_s, uint16_t *len, char* name){
+void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   // recieve length of filename
   uint16_t file_len;
   if(recv(new_s, &file_len, sizeof(file_len), 0) < 0){
@@ -39,7 +39,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char* name){
   fprintf(stdout, "File Name length: %d\n", *len);
   
   // recieve filename
-  if(recv(new_s, name, sizeof(name), 0) < 0){
+  if(recv(new_s, name, file_len, 0) < 0){
     perror("Error recieving file name");
     exit(1);
   }
@@ -69,7 +69,7 @@ void download(int new_s){
 void upload(int new_s) {
 
   // Get Filename Length and Filename
-  char fname[MAX_LINE]; uint16_t len;
+  char fname[BUFSIZ]; uint16_t len;
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment
@@ -81,12 +81,16 @@ void upload(int new_s) {
   }
 
   // Receive Size of File
-  int rlen, fsize;
-  if((rlen = recv(new_s, &fsize, sizeof(fsize), 0)) == -1){
+	uint32_t n_fsize = 0;
+	int recvd = 0;
+  if((recvd = recv(new_s, &n_fsize, sizeof(uint32_t), 0)) == -1){
     perror("Error receiving size of file");
     exit(1);
   }
-	fprintf(stdout, "File Size: %d\n", fsize);
+	fprintf(stdout, "Received Bytes: %d\n", recvd);
+	fprintf(stdout, "Initial File Size: %d\n", n_fsize);
+	uint32_t fsize = ntohl(n_fsize);
+	fprintf(stdout, "Converted File Size: %d\n", fsize);
 
   // Initialize File
   fprintf(stdout, "Creating file: %s\n", fname);
@@ -101,10 +105,12 @@ void upload(int new_s) {
   while (fsize > 0) {
     // Receive Content
     int rcv_size;
-    if((rcv_size = recv(new_s, file_content, sizeof(file_content), 0)) == -1){
+    if((rcv_size = recv(new_s, file_content, fsize, 0)) == -1){
       perror("Error recieving file name");
       exit(1);
     }
+		fprintf(stdout, "File Content: %s\n", file_content);
+		fprintf(stdout, "Initial FSize: %d; Received: %d\n", fsize, rcv_size);
     fsize -= rcv_size;
 
     // Write Content to File
