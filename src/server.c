@@ -27,7 +27,7 @@ int check_file(char* filename){
   return 0;
 }
 
-void get_len_and_filename(int new_s, uint16_t *len, char[] name){
+void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   // recieve length of filename
   uint16_t file_len;
   if(recv(new_s, &file_len, sizeof(file_len), 0) < 0){
@@ -105,7 +105,7 @@ void upload(int new_s) {
   while (fsize > 0) {
     // Receive Content
     int rcv_size;
-    if((rcv_size = recv(new_s, file_content, sizeof(file_content), 0)) == -1){
+    if((rcv_size = recv(new_s, file_content, fsize, 0)) == -1){
       perror("Error recieving file name");
       exit(1);
     }
