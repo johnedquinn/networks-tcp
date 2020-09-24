@@ -155,7 +155,7 @@ void cd(int new_s){
     if(dir){
       // try to change directory 
       char command[BUFSIZ];
-      sprintf(command, sizeof(command), "cd %s", fname);
+      sprintf(command, "cd %s", fname);
       FILE* fp = popen(command, "r");
 
       if(fp){
