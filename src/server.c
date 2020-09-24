@@ -154,7 +154,9 @@ void cd(int new_s){
     // if exists: 
     if(dir){
       // try to change directory 
-      FILE* fp = popen(fname, "r");
+      char command[BUFSIZ];
+      sprintf(command, sizeof(command), "cd %s", fname);
+      FILE* fp = popen(command, "r");
 
       if(fp){
         if(send(new_s, &success, sizeof(success), 0) == -1) {
