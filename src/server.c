@@ -41,20 +41,6 @@ int is_directory(const char *path) {
     return EXIT_FAILURE;
 }
 
-int is_directory(const char *path) {
-
-    struct stat path_stat;
-    if(stat(path, &path_stat) < 0)
-        return EXIT_FAILURE;
-
-    int isDir = S_ISDIR(path_stat.st_mode);
-    if(isDir)
-        return EXIT_SUCCESS;
-
-    return EXIT_FAILURE;
-}
-
-
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   // recieve length of filename
   uint16_t file_len;
@@ -373,7 +359,7 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
-        cd(new_s);
+        // cd(new_s);
       } else if (!strncmp(buf, "QUIT", 4)) {
       } else {
         //@TODO: server_options();
