@@ -189,6 +189,34 @@ int main(int argc, char * argv[]) {
     /* HEAD */
     else if(!strcmp(cmd, "HEAD")) {
 
+      uint32_t size;
+	    if(recv(s, &size, sizeof(size), 0) < 0) perror("Error receiving size from server.");
+      size = ntohs(size);
+
+      printf("Recieved Size: %lu\n", (unsigned long) size);
+
+      if(size > 0) {
+        char data[MAX_LINE] = "";
+
+        uint32_t bytes_read = 0;
+        int data_bytes = MAX_LINE;
+
+        while(bytes_read < size) {
+          if(size - bytes_read < MAX_LINE) {
+              data_bytes = size - bytes_read;
+            }
+          if(recv(s, data, data_bytes, 0) < 0) {
+            perror("Error receiving file data from server.");
+          }
+          printf("%s", data);
+          bytes_read += data_bytes;
+          printf("%lu\n", (unsigned long) bytes_read);
+        }
+
+      } else {
+        printf("File does not exist on the server.");
+      }
+
     }
 
     /* RM */
@@ -213,6 +241,7 @@ int main(int argc, char * argv[]) {
 
 
     printf("> ");
+    fflush(stdout);
   }
 
   close(s); 

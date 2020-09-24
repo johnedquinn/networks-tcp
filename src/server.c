@@ -21,12 +21,10 @@ int check_file(char* filename){
   struct stat path_stat;
   stat(filename, &path_stat);
 
-  if(S_ISREG(path_stat.st_mode)){
-    return 0;
-  } else {
-    perror("Not a file.\n");
-    return -1;
-  }
+  if(S_ISREG(path_stat.st_mode)) return 1;
+
+  fprintf(stderr, "%s is not a file on the server.\n", filename);
+  return 0;
 }
 
 void get_len_and_filename(int new_s, uint16_t *len, char[] name){
@@ -220,12 +218,77 @@ int main(int argc, char* argv[]) {
         upload(new_s);
       } else if (!strncmp(buf, "HEAD", 4)) {
 
-        char name[MAX_LINE];
-        unsigned short len;
+        u_int16_t len = 0;
+        char name[MAX_LINE] = "";
         get_len_and_filename(new_s, &len, name);
         
         if(check_file(name)) {
 
+          FILE* fp = fopen(name, "r");
+          char curr;
+          char buffer[MAX_LINE] = "";
+          uint32_t size = 0;
+          int lines = 0;
+
+          while(lines < 10) {
+            curr = fgetc(fp);
+            if(curr == EOF) break;
+            size += sizeof(curr);
+            if(curr == '\n') lines++;
+
+          }
+
+          if(size == 0) {
+            // Send Negative Confirmation
+            fprintf(stdout, "Sending Negative Confirmation\n");
+            short int status = -1;
+            if(send(new_s, &status, sizeof(status), 0) == -1) {
+              perror("Server Send Error"); 
+              exit(1);
+            }
+            break;
+          }
+
+          // Send Size
+          fprintf(stdout, "Sending size to client: %lu\n", (unsigned long) size);
+          size = htons(size);
+          if(send(new_s, &size, sizeof(size), 0) == -1) {
+            perror("Server Send Error"); 
+            exit(1);
+          }
+
+          rewind(fp);
+          bzero(&buffer, sizeof(buffer));
+
+          // Send Data
+          fprintf(stdout, "Sending data to client\n");
+
+
+          int bytes_sent = 0;
+          int data_bytes = MAX_LINE;
+          while(bytes_sent < size) {
+            if(size - bytes_sent < MAX_LINE) {
+              data_bytes = size - bytes_sent;
+            }
+            if(fgets(buffer, data_bytes, fp) != 0) {
+              if(send(new_s, buffer, strlen(buffer), 0) == -1) {
+                perror("Server Send Error"); 
+                exit(1);
+              }
+            }
+            bytes_sent += data_bytes;
+          }
+          
+          fflush(stdout);
+
+        } else {
+          // Send Negative Confirmation
+          fprintf(stdout, "Sending Negative Confirmation\n");
+          short int status = -1;
+          if(send(new_s, &status, sizeof(status), 0) == -1) {
+            perror("Server Send Error"); 
+            exit(1);
+          }
         }
         
       } else if (!strncmp(buf, "RM", 2)) {
