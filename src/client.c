@@ -31,6 +31,7 @@ void upload(int s, char* fname) {
 		perror("Error Receiving Server Acknowledgement");
 		return;
 	}
+	fprintf(stdout, "Received Acknowledgement\n");
 
 	// Get File Information
 	struct stat fstat;
@@ -40,13 +41,20 @@ void upload(int s, char* fname) {
 	}
 
 	// Get File Size
-	int fsize = fstat.st_size;
+	uint32_t h_fsize = fstat.st_size;
+	fprintf(stdout, "Initial FSize: %d\n", h_fsize);
+	uint32_t fsize = htonl(h_fsize);
+	fprintf(stdout, "Converted FSize: %d\n", fsize);
 
 	// Send File Size
-	if(send(s, &fsize, sizeof(fsize), 0) == -1) {
+	int sent = 0;
+	if((sent = send(s, &fsize, sizeof(fsize), 0)) == -1) {
 		perror("Client send error!");
 		exit(1);
 	}
+	fflush(stdout);
+	fprintf(stdout, "Sent Bytes: %d\n", sent);
+	fprintf(stdout, "Sent FSize: %d\n", fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -55,18 +63,20 @@ void upload(int s, char* fname) {
 	}
 
 	// Read Content and Send
-	char buff[BUFSIZ];
-	while (fsize != 0) {
+	char buff[BUFSIZ]; int read = 1;
+	while (fsize > 0 && read != 0) {
 		// Read Content
-		int read = fread(buff, fsize, 1, fp);
+		read = fread(buff, 1, fsize, fp);
 		if (read < 0) {
 			fprintf(stderr, "Error reading file\n");
 			return;
 		}
+		fprintf(stdout, "Buffer File Content: %s\n", buff);
+		fprintf(stdout, "Fsize initially: %d; Read: %d\n", fsize, read);
 		fsize -= read;
 
 		// Send Content
-		if(send(s, buff, read, 0) == -1) {
+		if(send(s, buff, strlen(buff), 0) == -1) {
 			perror("Client send error!");
 			exit(1);
 		}
@@ -175,7 +185,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
       }
 
       /* Send name */
-      if(send(s, name, strlen(name), 0) == -1) {
+      if(send(s, name, strlen(name) + 1, 0) == -1) {
         perror("client send error!"); 
         exit(1);
       }
