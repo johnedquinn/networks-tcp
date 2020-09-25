@@ -33,13 +33,13 @@ int is_directory(const char *path) {
 
     struct stat path_stat;
     if(stat(path, &path_stat) < 0)
-        return EXIT_FAILURE;
+        return 0;
 
     int isDir = S_ISDIR(path_stat.st_mode);
     if(isDir)
-        return EXIT_SUCCESS;
+        return 1;
 
-    return EXIT_FAILURE;
+    return 0;
 }
 
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){
@@ -47,12 +47,14 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
 
   // recieve length of filename
   uint16_t file_len;
+  printf("Recieving length of filename...\n");
+  printf("Sizeof file len: %lu\n", sizeof file_len);
   if((size = recv(new_s, &file_len, sizeof(file_len), 0)) < 0){
     perror("Error receiving file length");
     exit(1);
   }
   *len = ntohs(file_len);
-	fprintf(stdout, "Old FName Leng: (%d); FName Len: (%d); Bytes: (%d)\n", file_len, *len, size);
+	fprintf(stdout, "Old FName Len: (%d); FName Len: (%d); Bytes: (%d)\n", file_len, *len, size);
   
   // recieve filename
   if ((size = recv(new_s, name, *len, 0)) < 0){
@@ -62,7 +64,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   fprintf(stdout, "Filename: (%s); Bytes Received: (%d)\n", name, size);
 }
 
-void download(int new_s){
+void download(int new_s){ // ---------------------------------- DOWNLOAD
 
   char name[MAX_LINE];
   unsigned short len;
@@ -84,7 +86,7 @@ void download(int new_s){
  * @desc   NA
  * @param  new_s
  */
-void upload(int new_s) {
+void upload(int new_s) { // ----------------------------------------- UPLOAD
 
 	fprintf(stdout, "@@@@@ UPLOAD @@@@@\n");
 	int size = 0;
@@ -180,7 +182,7 @@ void upload(int new_s) {
 
 }
 
-void cd(int new_s){
+void cd(int new_s){ // ------------------------------------------- CD
 
   char fname[MAX_LINE]; 
   uint16_t len;
@@ -190,25 +192,32 @@ void cd(int new_s){
 
   // check if dir name exists or not
   printf("directory name is: %s\n", fname);
-  DIR* dir = opendir(fname);
+
   int success = 1; int noexist = -2; int failure = -1;
 
     // if exists: 
-  if(dir){
+  if(is_directory(fname)){
       // try to change directory 
     char command[BUFSIZ];
-    sprintf(command, "cd %s", fname);
+    sprintf(command, "cd %s/", fname);
     printf("full command is: %s\n", command);
 
-    FILE* fp = popen(command, "r");
+    FILE* fp1 = popen(command, "r");
 
-    if(fp){
+    if(fp1){
       if(send(new_s, &success, sizeof(success), 0) == -1) {
         perror("Server Send Error"); 
         exit(1);
       }
 
+      pclose(fp1);
+
+      FILE* fp = popen("pwd", "r");
+      char buf[BUFSIZ];
+      fgets(buf, BUFSIZ, fp);
+      fprintf(stdout, "Current Directory: %s\n", buf);
       pclose(fp);
+
     } else {
       if(send(new_s, &failure, sizeof(failure), 0) == -1){
         perror("Server send error");
@@ -225,7 +234,7 @@ void cd(int new_s){
 }
 
 
-void ls(int new_s){
+void ls(int new_s){ // ------------------------------------------------- ls
 
   DIR* dir = opendir(".");
   if(!dir) {
@@ -284,7 +293,7 @@ void ls(int new_s){
 }
 // @func  main
 // @desc  Main driver for server
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) { // ------------------------------------------ Main
 
   // Grab Port from Command Line
   int port;

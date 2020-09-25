@@ -123,7 +123,7 @@ void upload(int s, char* fname) {
 
 }
 
-void cd(int s){
+void cd(int s){ // -------------------------------------------- CD
 
   int status;
 
@@ -154,6 +154,7 @@ void ls(int s){ // ------------------------------------------------ LS
 
   char buf[BUFSIZ];
   int read = converted_size;
+  int total_read = 0;
   while(read > 0){
     int recv_size;
     if((recv_size = recv(s, buf, converted_size, 0)) == -1){
@@ -162,10 +163,12 @@ void ls(int s){ // ------------------------------------------------ LS
     }
     printf("Recieved size: %d\n", recv_size);
     read -= recv_size;
+    total_read += recv_size;
     printf("New converted size = %d\n", read);
     fprintf(stdout, "%s", buf);
   fflush(stdout);
   }
+  printf("Total bytes read: %d\n", total_read);
   // printf("\n");
 }
 
@@ -240,14 +243,15 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
-      u_int16_t l = htons(len + 1);
-			fprintf(stdout, "Sending file name length: %d\n", l + 1);
+      uint16_t l = htons(len + 1);
+			fprintf(stdout, "Sending file name converted length: %d, bytes: %lu\n", l, sizeof(l));
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
       }
 
       /* Send name */
+      fprintf(stdout, "Sending file name: %s, bytes: %lu\n", name, strlen(name) + 1);
       if(send(s, name, strlen(name) + 1, 0) == -1) {
         perror("client send error!"); 
         exit(1);
