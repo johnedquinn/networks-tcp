@@ -13,6 +13,7 @@ rreutima, jquinn13, pbald
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <sys/time.h>
 #include <dirent.h>
 
 #define MAX_LINE 4096
@@ -42,22 +43,23 @@ int is_directory(const char *path) {
 }
 
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){
+	int size = 0;
+
   // recieve length of filename
   uint16_t file_len;
-  if(recv(new_s, &file_len, sizeof(file_len), 0) < 0){
+  if((size = recv(new_s, &file_len, sizeof(file_len), 0)) < 0){
     perror("Error receiving file length");
     exit(1);
   }
-	fprintf(stdout, "Old File Length: %d\n", file_len);
   *len = ntohs(file_len);
-  fprintf(stdout, "File Name length: %d\n", *len);
+	fprintf(stdout, "Old FName Leng: (%d); FName Len: (%d); Bytes: (%d)\n", file_len, *len, size);
   
   // recieve filename
-  if(recv(new_s, name, file_len, 0) < 0){
+  if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
     exit(1);
   }
-  fprintf(stdout, "Filename: %s\n", name);
+  fprintf(stdout, "Filename: (%s); Bytes Received: (%d)\n", name, size);
 }
 
 void download(int new_s){
@@ -77,10 +79,15 @@ void download(int new_s){
   
 }
 
-// @func   upload
-// @desc   NA
-// @param  new_s
+/*
+ * @func   upload
+ * @desc   NA
+ * @param  new_s
+ */
 void upload(int new_s) {
+
+	fprintf(stdout, "@@@@@ UPLOAD @@@@@\n");
+	int size = 0;
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
@@ -89,10 +96,11 @@ void upload(int new_s) {
   // Send Acknowledgment
   fprintf(stdout, "Sending Acknowledgment\n");
   short int status = 0;
-  if(send(new_s, &status, sizeof(status), 0) == -1) {
+  if ((size = send(new_s, &status, sizeof(status), 0)) == -1) {
     perror("Server Send Error"); 
     exit(1);
   }
+	if (size != 2) fprintf(stdout, "ACK: RECV ONLY (%d) BYTES\n", size);
 
   // Receive Size of File
 	uint32_t n_fsize = 0;
@@ -101,13 +109,14 @@ void upload(int new_s) {
     perror("Error receiving size of file");
     exit(1);
   }
-	fprintf(stdout, "Received Bytes: %d\n", recvd);
-	fprintf(stdout, "Initial File Size: %d\n", n_fsize);
+	fprintf(stdout, "Received Bytes: (%d)\n", recvd);
+	fprintf(stdout, "Initial File Size: (%d)\n", n_fsize);
 	uint32_t fsize = ntohl(n_fsize);
-	fprintf(stdout, "Converted File Size: %d\n", fsize);
+	int tpfsize = fsize;
+	fprintf(stdout, "Converted File Size: (%d)\n", fsize);
 
   // Initialize File
-  fprintf(stdout, "Creating file: %s\n", fname);
+  fprintf(stdout, "Creating file: (%s)\n", fname);
   FILE * fp = fopen(fname, "w");
   if (!fp) {
     perror("Unable to create file");
@@ -116,15 +125,18 @@ void upload(int new_s) {
 
   // Receive File
   char file_content[BUFSIZ];
+	struct timeval begin, end;
+	gettimeofday(&begin, NULL);
   while (fsize > 0) {
     // Receive Content
+  	bzero((char *)&file_content, sizeof(file_content));
     int rcv_size;
     if((rcv_size = recv(new_s, file_content, fsize, 0)) == -1){
       perror("Error recieving file name");
       exit(1);
     }
-		fprintf(stdout, "File Content: %s\n", file_content);
-		fprintf(stdout, "Initial FSize: %d; Received: %d\n", fsize, rcv_size);
+		fprintf(stdout, "File Content: (%s)\n", file_content);
+		fprintf(stdout, "Initial FSize: (%d); Received: (%d)\n", fsize, rcv_size);
     fsize -= rcv_size;
 
     // Write Content to File
@@ -133,11 +145,15 @@ void upload(int new_s) {
       exit(1);
     }
   }
+	gettimeofday(&end, NULL);
+	float time = ((double) (end.tv_usec - begin.tv_usec) / 1000000 + (double) (end.tv_sec - begin.tv_sec));
+	fprintf(stdout, "Time Taken: %f\n", time);
   fclose(fp);
 
   // @TODO: Get rid of hard-code throughput
   // Compute Throughput
-  float throughput = 0.5;
+  float tp = tpfsize / time / 1000000;
+	fprintf(stdout, "TP: (%f MBps)\n", tp);
 
   // Compute MD5 Hash @TODO: Perform error checking for file size
   char command[BUFSIZ]; char md5hash[BUFSIZ];
@@ -147,16 +163,19 @@ void upload(int new_s) {
   pclose(fp);
 
   // Send Throughput
-  if(send(new_s, &throughput, sizeof(throughput), 0) == -1) {
+  uint32_t ntp = htonl((uint32_t)tp);
+  if(send(new_s, &ntp, sizeof(ntp), 0) == -1) {
     perror("Server Send Error"); 
     exit(1);
   }
+	fprintf(stdout, "TP: Net TP: (%d); Bytes Sent: (%d)\n", ntp, size);
   
   // Send MD5 Hash
-  if(send(new_s, md5hash, sizeof(md5hash), 0) == -1) {
+  if((size = send(new_s, md5hash, strlen(md5hash) + 1, 0)) == -1) {
     perror("Server Send Error"); 
     exit(1);
   }
+  fprintf(stdout, "MD5: Sending Hash: (%s); Bytes Sent(%d)\n", md5hash, size);
   
 
 }
