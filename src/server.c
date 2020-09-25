@@ -33,13 +33,13 @@ int is_directory(const char *path) {
 
     struct stat path_stat;
     if(stat(path, &path_stat) < 0)
-        return EXIT_FAILURE;
+        return 0;
 
     int isDir = S_ISDIR(path_stat.st_mode);
     if(isDir)
-        return EXIT_SUCCESS;
+        return 1;
 
-    return EXIT_FAILURE;
+    return 0;
 }
 
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){
