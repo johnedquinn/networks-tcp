@@ -227,6 +227,88 @@ void ls(int new_s){
   pclose(fp2);
 
 }
+
+int is_empty(char* dirName){
+
+  int n = 0;
+  struct dirent *d;
+  DIR* dir = opendir(dirName);
+
+  if( dir )
+    return 0;
+
+  while((d = readdir(dir)) != NULL){
+    if(++n > 2) break; // dont count . and .. 
+  }
+
+  closedir(dir);
+
+  if (n <= 2){
+    printf("Directory not empty\n");
+    return 1;
+  } else {
+    printf("Directory empty\n");
+    return 0;
+  }
+
+}
+
+void removeDir(int new_s){ // -------------------------------------- RMDIR
+
+  // Get Filename Length and Filename
+  char dirName[BUFSIZ]; uint16_t len;
+  get_len_and_filename(new_s, &len, dirName);
+
+  // check if directory to be deleted exists
+  if(is_directory(dirName)){
+    // check if dir is empty
+    if(is_empty(dirName)){
+      // send back 1
+      int sent_1 = 0; int exists_empty = 1;
+      if((sent_1 = send(new_s, &exists_empty, sizeof exists_empty, 0)) < 0){
+        perror("Error sending exists empty response\n");
+        exit(1);
+      }
+
+      // see if client responds with yes or no
+      int recv_size = 0;
+      char buf[4];
+      if((recv_size = recv(new_s, buf, 4, 0)) < 0){
+        perror("Error recieving client rmdir response\n");
+        exit(1);
+      }
+
+      if(!strncmp(buf, "Yes", 3)){
+        int status;
+        status = rmdir(dirName);
+        
+        // send deletion acknowledgement
+        send(new_s, &status, sizeof status, 0);
+
+      } else if (!strncmp(buf, "No", 2)){
+        printf("Delete abandoned by the user\n");
+      }
+        
+      return;
+
+    } else {
+      // send back -1 
+      int sent_2 = 0; int exists_full = -1;
+      if((sent_2 = send(new_s, &exists_full, sizeof exists_full, 0)) < 0){
+        perror("Error sending exists full response\n");
+        exit(1);
+      }
+    }
+  } else {
+    // send back -2
+    int sent_3 = 0; int dne = -2;
+    if((sent_3 = send(new_s, &dne, sizeof dne, 0)) < 0){
+      perror("Error sending does not exist response\n");
+      exit(1);
+    }
+  }
+}
+
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
