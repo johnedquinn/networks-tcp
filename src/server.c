@@ -48,10 +48,10 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
     perror("Error receiving file length");
     exit(1);
   }
-	fprintf(stdout, "Old File Length: %d\n", file_len);
+	fprintf(stdout, "Un-decoded File Length: %d\n", file_len);
   *len = ntohs(file_len);
   fprintf(stdout, "File Name length: %d\n", *len);
-  
+
   // recieve filename
   if(recv(new_s, name, file_len, 0) < 0){
     perror("Error recieving file name");
@@ -168,35 +168,39 @@ void cd(int new_s){
   get_len_and_filename(new_s, &len, fname); 
 
   // check if dir name exists or not
+  printf("directory name is: %s\n", fname);
   DIR* dir = opendir(fname);
   int success = 1; int noexist = -2; int failure = -1;
-    // if exists: 
-    if(dir){
-      // try to change directory 
-      char command[BUFSIZ];
-      sprintf(command, "cd %s", fname);
-      FILE* fp = popen(command, "r");
 
-      if(fp){
-        if(send(new_s, &success, sizeof(success), 0) == -1) {
-          perror("Server Send Error"); 
-          exit(1);
-        }
-      } else {
-        if(send(new_s, &failure, sizeof(failure), 0) == -1){
-          perror("Server send error");
-          exit(1);
-        }
+    // if exists: 
+  if(dir){
+      // try to change directory 
+    char command[BUFSIZ];
+    sprintf(command, "cd %s", fname);
+    printf("full command is: %s\n", command);
+
+    FILE* fp = popen(command, "r");
+
+    if(fp){
+      if(send(new_s, &success, sizeof(success), 0) == -1) {
+        perror("Server Send Error"); 
+        exit(1);
       }
-    } 
-    else { // dir does not exist
-      if(send(new_s, &noexist, sizeof(noexist), 0) == -1){
+
+      pclose(fp);
+    } else {
+      if(send(new_s, &failure, sizeof(failure), 0) == -1){
         perror("Server send error");
         exit(1);
-      } 
+      }
     }
-
-
+  } 
+  else { // dir does not exist
+    if(send(new_s, &noexist, sizeof(noexist), 0) == -1){
+      perror("Server send error");
+      exit(1);
+    } 
+  }
 }
 
 

@@ -87,6 +87,25 @@ void upload(int s, char* fname) {
 
 }
 
+void cd(int s){
+
+  int status;
+
+  if((recv(s, &status, sizeof(status), 0)) < 0){
+    perror("Error recieving cd return status\n");
+    return;
+  }
+
+  if(status == -2){
+    printf("The directory does not exist on server\n");
+  } else if (status == -1){
+    printf("Error in changing directory\n");
+  } else if (status > 0){
+    printf("Changed current directory\n");
+  }
+
+}
+
 void ls(int s){ // ------------------------------------------------ LS 
   // recieve directory size
   uint32_t size;
