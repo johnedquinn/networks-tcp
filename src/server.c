@@ -163,11 +163,6 @@ void upload(int new_s) {
 
 void ls(int new_s){
 
-  // @TODO obtain listing of directory
-  // char dirName[BUFSIZ];
-  // unsigned short len;
-  // get_len_and_filename(new_s, &len, dirName);
-
   DIR* dir = opendir(".");
   if(!dir) {
     fprintf(stdout, "Unable to open current directory\n");
@@ -175,38 +170,42 @@ void ls(int new_s){
   }
 
   // @TODO compute size of each file and sum
-  uint32_t dir_size = 0;
-  fprintf(stdout, "Walking directory...\n");
-  for(struct dirent *entry = readdir(dir); entry; entry = readdir(dir)){
-    struct stat st;
-    stat(entry->d_name, &st);
-    dir_size += st.st_size;
-  }
-  
-  // @TODO send size of directory listing
-  fprintf(stdout, "Total directory size: %d\n", dir_size);
-  // fflush(stdout);
-  if(send(new_s, &dir_size, sizeof(dir_size), 0) < 0){
-    perror("Error sending directory size");
-  }
-
-  FILE* fp;
-  char buf[BUFSIZ];
-  fp = popen("ls -l", "r");
-  if(!fp){
+  FILE* fp1;
+  fp1 = popen("ls -l", "r");
+  if(!fp1){
     fprintf(stdout, "Unable to run popen on directory\n");
     fflush(stdout);
     return;
   }
 
-  // @TODO loop through and send directory listing
-  printf("Sending directory listing...\n");
-  while(fgets(buf, sizeof(buf), fp) > 0){
-    printf("%s", buf);
-    send(new_s, buf, sizeof(buf), 0);
+  uint32_t dir_size = 0;
+  char tmp[BUFSIZ];
+  int nread = 0;
+  while((nread = fread(tmp, 1, sizeof tmp, fp1)) > 0){
+    dir_size += nread;
   }
 
-  pclose(fp);
+  pclose(fp1);
+
+  // printf("directory file length: %d\n", dir_size);
+  uint32_t dir_string_size = htonl(dir_size);
+  // send lenght of dir string
+  if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
+    printf("Error sending back dir string size\n");
+  }
+
+  FILE* fp2 = popen("ls -l", "r");
+
+  // @TODO loop through and send directory listing
+  char buf[BUFSIZ];
+  nread = 0;
+  // printf("Sending directory listing...\n");
+  while((nread = fread(buf, 1, dir_size, fp2)) > 0){
+    printf("%s", buf);
+    send(new_s, buf, strlen(buf), 0);
+  }
+
+  pclose(fp2);
 
 }
 // @func  main
@@ -366,7 +365,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
       }
     }
-      printf("Client finishes, close the connection!\n");
+      printf("Client finished, close the connection!\n");
       close(new_s);
   }
 

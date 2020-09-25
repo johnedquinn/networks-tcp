@@ -89,21 +89,28 @@ void upload(int s, char* fname) {
 
 void ls(int s){ // ------------------------------------------------ LS 
   // recieve directory size
-  printf("Running LS\n");
   uint32_t size;
 	if (recv(s, &size, sizeof(size), 0) < 0) {
 		printf("Error Receiving directory size\n");
 		return;
 	}
-  printf("Directory size: %d\n", size);
+  uint32_t converted_size = ntohl(size);
 
-  int recv_size = 0;
   char buf[BUFSIZ];
-  while((recv_size = recv(s, buf, sizeof(buf), 0)) > 0){
-    printf("%s", buf);
+  int read = converted_size;
+  while(read > 0){
+    int recv_size;
+    if((recv_size = recv(s, buf, converted_size, 0)) == -1){
+      perror("error receiving ls listing\n");
+      return;
+    }
+    // printf("Recieved size: %d\n", recv_size);
+    read -= recv_size;
+    // printf("New converted size = %d\n", converted_size);
+    fprintf(stdout, "%s", buf);
+
   }
   fflush(stdout);
-
 }
 
 int main(int argc, char * argv[]) { // ----------------------------- main
@@ -159,7 +166,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
   while(fgets(buf, sizeof(buf), stdin)) {
 
 		// Grab Command
-    char* cmd = strtok(buf, " ");
+    char* cmd = strtok(buf, " \n");
     char* name;
     uint16_t len;
     /* Send intial operation */
@@ -253,8 +260,6 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* LS */ 
     else if(!strcmp(cmd, "LS")){
-      // printf("Running LS command\n");
-      // fflush(stdout);
       ls(s);
     }
 
