@@ -227,6 +227,20 @@ void ls(int new_s){
   pclose(fp2);
 
 }
+
+void rm(int new_s){ // ---------------------------------------- RM
+
+  // Get Filename Length and Filename
+  char fname[BUFSIZ]; uint16_t len;
+  get_len_and_filename(new_s, &len, fname); 
+
+  // check if file exists or not
+  // send back : 1 to confirm, -1 if dne
+
+  // wait for confirmation from client to delete or not
+
+}
+
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
@@ -372,12 +386,13 @@ int main(int argc, char* argv[]) {
         }
         
       } else if (!strncmp(buf, "RM", 2)) {
+        rm(new_s);
       } else if (!strncmp(buf, "LS", 2)) {
         ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
-        // cd(new_s);
+        cd(new_s);
       } else if (!strncmp(buf, "QUIT", 4)) {
       } else {
         //@TODO: server_options();
