@@ -28,7 +28,20 @@ int check_file(char* filename){
   return 0;
 }
 
-void get_len_and_filename(int new_s, uint16_t *len, char* name){
+int is_directory(const char *path) {
+
+    struct stat path_stat;
+    if(stat(path, &path_stat) < 0)
+        return EXIT_FAILURE;
+
+    int isDir = S_ISDIR(path_stat.st_mode);
+    if(isDir)
+        return EXIT_SUCCESS;
+
+    return EXIT_FAILURE;
+}
+
+void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   // recieve length of filename
   uint16_t file_len;
   if(recv(new_s, &file_len, sizeof(file_len), 0) < 0){
@@ -40,7 +53,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char* name){
   fprintf(stdout, "File Name length: %d\n", *len);
   
   // recieve filename
-  if(recv(new_s, name, sizeof(name), 0) < 0){
+  if(recv(new_s, name, file_len, 0) < 0){
     perror("Error recieving file name");
     exit(1);
   }
@@ -70,7 +83,7 @@ void download(int new_s){
 void upload(int new_s) {
 
   // Get Filename Length and Filename
-  char fname[MAX_LINE]; uint16_t len;
+  char fname[BUFSIZ]; uint16_t len;
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment
@@ -82,12 +95,16 @@ void upload(int new_s) {
   }
 
   // Receive Size of File
-  int rlen, fsize;
-  if((rlen = recv(new_s, &fsize, sizeof(fsize), 0)) == -1){
+	uint32_t n_fsize = 0;
+	int recvd = 0;
+  if((recvd = recv(new_s, &n_fsize, sizeof(uint32_t), 0)) == -1){
     perror("Error receiving size of file");
     exit(1);
   }
-	fprintf(stdout, "File Size: %d\n", fsize);
+	fprintf(stdout, "Received Bytes: %d\n", recvd);
+	fprintf(stdout, "Initial File Size: %d\n", n_fsize);
+	uint32_t fsize = ntohl(n_fsize);
+	fprintf(stdout, "Converted File Size: %d\n", fsize);
 
   // Initialize File
   fprintf(stdout, "Creating file: %s\n", fname);
@@ -102,10 +119,12 @@ void upload(int new_s) {
   while (fsize > 0) {
     // Receive Content
     int rcv_size;
-    if((rcv_size = recv(new_s, file_content, sizeof(file_content), 0)) == -1){
+    if((rcv_size = recv(new_s, file_content, fsize, 0)) == -1){
       perror("Error recieving file name");
       exit(1);
     }
+		fprintf(stdout, "File Content: %s\n", file_content);
+		fprintf(stdout, "Initial FSize: %d; Received: %d\n", fsize, rcv_size);
     fsize -= rcv_size;
 
     // Write Content to File
@@ -181,6 +200,53 @@ void cd(int new_s){
 }
 
 
+void ls(int new_s){
+
+  DIR* dir = opendir(".");
+  if(!dir) {
+    fprintf(stdout, "Unable to open current directory\n");
+    return;
+  }
+
+  // @TODO compute size of each file and sum
+  FILE* fp1;
+  fp1 = popen("ls -l", "r");
+  if(!fp1){
+    fprintf(stdout, "Unable to run popen on directory\n");
+    fflush(stdout);
+    return;
+  }
+
+  uint32_t dir_size = 0;
+  char tmp[BUFSIZ];
+  int nread = 0;
+  while((nread = fread(tmp, 1, sizeof tmp, fp1)) > 0){
+    dir_size += nread;
+  }
+
+  pclose(fp1);
+
+  // printf("directory file length: %d\n", dir_size);
+  uint32_t dir_string_size = htonl(dir_size);
+  // send lenght of dir string
+  if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
+    printf("Error sending back dir string size\n");
+  }
+
+  FILE* fp2 = popen("ls -l", "r");
+
+  // @TODO loop through and send directory listing
+  char buf[BUFSIZ];
+  nread = 0;
+  // printf("Sending directory listing...\n");
+  while((nread = fread(buf, 1, dir_size, fp2)) > 0){
+    printf("%s", buf);
+    send(new_s, buf, strlen(buf), 0);
+  }
+
+  pclose(fp2);
+
+}
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
@@ -327,6 +393,7 @@ int main(int argc, char* argv[]) {
         
       } else if (!strncmp(buf, "RM", 2)) {
       } else if (!strncmp(buf, "LS", 2)) {
+        ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
@@ -337,7 +404,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
       }
     }
-      printf("Client finishes, close the connection!\n");
+      printf("Client finished, close the connection!\n");
       close(new_s);
   }
 
