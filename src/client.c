@@ -150,6 +150,7 @@ void ls(int s){ // ------------------------------------------------ LS
 		return;
 	}
   uint32_t converted_size = ntohl(size);
+  printf("Converted Size: %d\n", converted_size);
 
   char buf[BUFSIZ];
   int read = converted_size;
@@ -159,13 +160,13 @@ void ls(int s){ // ------------------------------------------------ LS
       perror("error receiving ls listing\n");
       return;
     }
-    // printf("Recieved size: %d\n", recv_size);
+    printf("Recieved size: %d\n", recv_size);
     read -= recv_size;
-    // printf("New converted size = %d\n", converted_size);
+    printf("New converted size = %d\n", read);
     fprintf(stdout, "%s", buf);
-
-  }
   fflush(stdout);
+  }
+  // printf("\n");
 }
 
 int main(int argc, char * argv[]) { // ----------------------------- main
@@ -259,7 +260,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* Command specific client operations */
-    printf("Command: %s\n", cmd);
+    printf("Command: %s\n", cmd); fflush(stdout);
     /* UP */
     if(!strcmp(cmd, "UP")) {
 			upload(s, name);
@@ -325,7 +326,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* CD */
     else if(!strcmp(cmd, "CD")) {
-
+      cd(s);
     }
 
 

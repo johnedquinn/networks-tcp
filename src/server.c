@@ -184,7 +184,9 @@ void cd(int new_s){
 
   char fname[MAX_LINE]; 
   uint16_t len;
+  printf("pre len and filename\n");
   get_len_and_filename(new_s, &len, fname); 
+  printf("post len and filename\n");
 
   // check if dir name exists or not
   printf("directory name is: %s\n", fname);
@@ -249,7 +251,7 @@ void ls(int new_s){
 
   pclose(fp1);
 
-  // printf("directory file length: %d\n", dir_size);
+  printf("directory file length: %d\n", dir_size);
   uint32_t dir_string_size = htonl(dir_size);
   // send lenght of dir string
   if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
@@ -260,12 +262,22 @@ void ls(int new_s){
 
   // @TODO loop through and send directory listing
   char buf[BUFSIZ];
-  nread = 0;
-  // printf("Sending directory listing...\n");
-  while((nread = fread(buf, 1, dir_size, fp2)) > 0){
+  printf("Sending directory listing...\n");
+  nread = dir_size;
+  while(nread > 0){
+
+    if(fread(buf, 1, dir_size, fp2) < 0 ){
+      perror("Error sending directory listing\n");
+      exit(1);
+    }
+
     printf("%s", buf);
-    send(new_s, buf, strlen(buf), 0);
+    send(new_s, buf, dir_size, 0);
+
+    nread -= nread;
   }
+
+  printf("Done Sending directory\n");
 
   pclose(fp2);
 
