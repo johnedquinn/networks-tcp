@@ -13,6 +13,7 @@ rreutima, jquinn13, pbald
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <dirent.h>
 
 #define MAX_LINE 4096
 #define MAX_PENDING 5
@@ -25,6 +26,19 @@ int check_file(char* filename){
 
   fprintf(stderr, "%s is not a file on the server.\n", filename);
   return 0;
+}
+
+int is_directory(const char *path) {
+
+    struct stat path_stat;
+    if(stat(path, &path_stat) < 0)
+        return EXIT_FAILURE;
+
+    int isDir = S_ISDIR(path_stat.st_mode);
+    if(isDir)
+        return EXIT_SUCCESS;
+
+    return EXIT_FAILURE;
 }
 
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){
@@ -147,6 +161,53 @@ void upload(int new_s) {
 
 }
 
+void ls(int new_s){
+
+  DIR* dir = opendir(".");
+  if(!dir) {
+    fprintf(stdout, "Unable to open current directory\n");
+    return;
+  }
+
+  // @TODO compute size of each file and sum
+  FILE* fp1;
+  fp1 = popen("ls -l", "r");
+  if(!fp1){
+    fprintf(stdout, "Unable to run popen on directory\n");
+    fflush(stdout);
+    return;
+  }
+
+  uint32_t dir_size = 0;
+  char tmp[BUFSIZ];
+  int nread = 0;
+  while((nread = fread(tmp, 1, sizeof tmp, fp1)) > 0){
+    dir_size += nread;
+  }
+
+  pclose(fp1);
+
+  // printf("directory file length: %d\n", dir_size);
+  uint32_t dir_string_size = htonl(dir_size);
+  // send lenght of dir string
+  if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
+    printf("Error sending back dir string size\n");
+  }
+
+  FILE* fp2 = popen("ls -l", "r");
+
+  // @TODO loop through and send directory listing
+  char buf[BUFSIZ];
+  nread = 0;
+  // printf("Sending directory listing...\n");
+  while((nread = fread(buf, 1, dir_size, fp2)) > 0){
+    printf("%s", buf);
+    send(new_s, buf, strlen(buf), 0);
+  }
+
+  pclose(fp2);
+
+}
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
@@ -293,16 +354,18 @@ int main(int argc, char* argv[]) {
         
       } else if (!strncmp(buf, "RM", 2)) {
       } else if (!strncmp(buf, "LS", 2)) {
+        ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
+        // cd(new_s);
       } else if (!strncmp(buf, "QUIT", 4)) {
       } else {
         //@TODO: server_options();
         fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
       }
     }
-      printf("Client finishes, close the connection!\n");
+      printf("Client finished, close the connection!\n");
       close(new_s);
   }
 

@@ -87,7 +87,33 @@ void upload(int s, char* fname) {
 
 }
 
-int main(int argc, char * argv[]) {
+void ls(int s){ // ------------------------------------------------ LS 
+  // recieve directory size
+  uint32_t size;
+	if (recv(s, &size, sizeof(size), 0) < 0) {
+		printf("Error Receiving directory size\n");
+		return;
+	}
+  uint32_t converted_size = ntohl(size);
+
+  char buf[BUFSIZ];
+  int read = converted_size;
+  while(read > 0){
+    int recv_size;
+    if((recv_size = recv(s, buf, converted_size, 0)) == -1){
+      perror("error receiving ls listing\n");
+      return;
+    }
+    // printf("Recieved size: %d\n", recv_size);
+    read -= recv_size;
+    // printf("New converted size = %d\n", converted_size);
+    fprintf(stdout, "%s", buf);
+
+  }
+  fflush(stdout);
+}
+
+int main(int argc, char * argv[]) { // ----------------------------- main
   /* Variables */
   struct hostent *hp;
   struct sockaddr_in sin;
@@ -139,12 +165,10 @@ int main(int argc, char * argv[]) {
   /* Client Shell: Send commands to server */
   while(fgets(buf, sizeof(buf), stdin)) {
 
-		// Grab Command, Name, and Length
-    char* cmd = strtok(buf, " ");
-		char* name  = strtok(NULL, "\t\n\0 ");
-		uint16_t len   = strlen(name) - 1;
-		fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
-
+		// Grab Command
+    char* cmd = strtok(buf, " \n");
+    char* name;
+    uint16_t len;
     /* Send intial operation */
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
@@ -153,6 +177,11 @@ int main(int argc, char * argv[]) {
 
     /* Send command specific data */
     if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strcmp(cmd, "RMDIR") || !strcmp(cmd, "CD")) {
+      
+      // get file name and length for appropriate commands
+		  name  = strtok(NULL, "\t\n\0 ");
+		  len   = strlen(name) - 1;
+		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
       u_int16_t l = htons(len);
@@ -175,7 +204,7 @@ int main(int argc, char * argv[]) {
     }
 
     /* Command specific client operations */
-
+    printf("Command: %s\n", cmd);
     /* UP */
     if(!strcmp(cmd, "UP")) {
 			upload(s, name);
@@ -227,6 +256,11 @@ int main(int argc, char * argv[]) {
     /* MKDIR */
     else if(!strcmp(cmd, "MKDIR")) {
 
+    }
+
+    /* LS */ 
+    else if(!strcmp(cmd, "LS")){
+      ls(s);
     }
 
     /* RMDIR */
