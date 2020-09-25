@@ -25,13 +25,16 @@ rreutima, jquinn13, pbald
  */
 void upload(int s, char* fname) {
 
+	int size = 0;
+
 	// Receive Server Acknowledgement
-	int ack;
-	if (recv(s, &ack, sizeof(ack), 0) < 0) {
+	uint16_t nack;
+	if ((size = recv(s, &nack, sizeof(nack), 0)) < 0) {
 		perror("Error Receiving Server Acknowledgement");
 		return;
 	}
-	fprintf(stdout, "Received Acknowledgement\n");
+	short ack = ntohs(nack);
+	fprintf(stdout, "ACK: Received ACK; Val: (%d); Bytes Size: (%d)\n", ack, size);
 
 	// Get File Information
 	struct stat fstat;
@@ -42,9 +45,8 @@ void upload(int s, char* fname) {
 
 	// Get File Size
 	uint32_t h_fsize = fstat.st_size;
-	fprintf(stdout, "Initial FSize: %d\n", h_fsize);
 	uint32_t fsize = htonl(h_fsize);
-	fprintf(stdout, "Converted FSize: %d\n", fsize);
+	int hashfsize = h_fsize;
 
 	// Send File Size
 	int sent = 0;
@@ -53,8 +55,7 @@ void upload(int s, char* fname) {
 		exit(1);
 	}
 	fflush(stdout);
-	fprintf(stdout, "Sent Bytes: %d\n", sent);
-	fprintf(stdout, "Sent FSize: %d\n", fsize);
+	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", sent, fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -64,26 +65,61 @@ void upload(int s, char* fname) {
 
 	// Read Content and Send
 	char buff[BUFSIZ]; int read = 1;
-	while (fsize > 0 && read != 0) {
+	fprintf(stdout, "SEND:\n");
+	while (h_fsize > 0 && read != 0) {
+  	bzero((char *)&buff, sizeof(buff));
 		// Read Content
-		read = fread(buff, 1, fsize, fp);
+		read = fread(buff, 1, h_fsize, fp);
 		if (read < 0) {
 			fprintf(stderr, "Error reading file\n");
 			return;
 		}
-		fprintf(stdout, "Buffer File Content: %s\n", buff);
-		fprintf(stdout, "Fsize initially: %d; Read: %d\n", fsize, read);
-		fsize -= read;
+		fprintf(stdout, "  Buffer File Content: (%s)\n", buff);
+		fprintf(stdout, "  Fsize initially: (%d); Read: (%d)\n", h_fsize, read);
+		h_fsize -= read;
 
 		// Send Content
-		if(send(s, buff, strlen(buff), 0) == -1) {
+		if((size = send(s, buff, read, 0)) == -1) {
 			perror("Client send error!");
 			exit(1);
 		}
+		fprintf(stdout, "  Bytes Sent: (%d)\n", size);
 	}
 
 	// Close File
 	fclose(fp);
+
+	// Receive Throughput
+	uint32_t ntp;
+	if ((size = recv(s, &ntp, sizeof(ntp), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	float tp = (float) ntohl(ntp);
+	fprintf(stdout, "TP: Net TP: (%d); TP: (%f); Bytes Rcvd: (%d)\n", ntp, tp, size);
+	
+	// Receive MD5 Hash
+	char md5[BUFSIZ];
+	if ((size = recv(s, &md5, sizeof(md5), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	fprintf(stdout, "MD5: RCV MD5: (%s); Bytes: (%d)\n", md5, size);
+
+	// Perform MD5 Hash
+	char command[BUFSIZ]; char md5hash[BUFSIZ];
+	sprintf(command, "md5sum %s", fname);
+	fp = popen(command, "r");
+	fread(md5hash, 1, sizeof(md5hash), fp);
+	pclose(fp);
+
+	// Check MD5 Hash
+	if (!strcmp(md5, md5hash)) {
+		fprintf(stdout, "%d bytes transferred in X seconds: %f Megabytes/sec\n", hashfsize, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", md5hash);
+	} else
+		fprintf(stderr, "Unable to perform UPLOAD\n");
+
 
 }
 
@@ -152,7 +188,6 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
   /* Translate host name into peer's IP address */
   hp = gethostbyname(host);
-
   if(!hp) {
     fprintf(stderr, "simplex-talk: unknown host: %s\n", host);
     exit(1);
@@ -188,6 +223,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     char* cmd = strtok(buf, " \n");
     char* name;
     uint16_t len;
+
     /* Send intial operation */
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
@@ -199,12 +235,12 @@ int main(int argc, char * argv[]) { // ----------------------------- main
       
       // get file name and length for appropriate commands
 		  name  = strtok(NULL, "\t\n\0 ");
-		  len   = strlen(name) - 1;
+		  len   = strlen(name);
 		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
-      u_int16_t l = htons(len);
-			fprintf(stdout, "Sending file name length: %d\n", l);
+      u_int16_t l = htons(len + 1);
+			fprintf(stdout, "Sending file name length: %d\n", l + 1);
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
@@ -295,6 +331,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     printf("> ");
     fflush(stdout);
+  	bzero((char *)&buf, sizeof(buf));
   }
 
   close(s); 
