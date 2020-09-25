@@ -79,8 +79,9 @@ void download(int new_s){
 
 /*
  * @func   upload
- * @desc   NA
- * @param  new_s
+ * @desc   Performs the client requested UP (upload) operation
+ * --
+ * @param  new_s  Socket Descriptor
  */
 void upload(int new_s) {
 
