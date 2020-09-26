@@ -13,6 +13,7 @@ rreutima, jquinn13, pbald
 #include <netdb.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #define MAX_LINE 4096
 
@@ -47,8 +48,7 @@ void upload(int s, char* fname) {
 	int hashfsize = h_fsize;
 
 	// Send File Size
-	int sent = 0;
-	if((sent = send(s, &fsize, sizeof(fsize), 0)) == -1) {
+	if((size = send(s, &fsize, sizeof(fsize), 0)) == -1) {
 		perror("Client send error!");
 		exit(1);
 	}
@@ -114,6 +114,96 @@ void upload(int s, char* fname) {
 	} else
 		fprintf(stderr, "Unable to perform UPLOAD\n");
 
+}
+
+/*
+ * @func   download
+ * @desc   downloads file to server
+ * --
+ * @param  s      Socket number
+ * @param  fname  File name
+ */
+void download(int s, char* fname) {
+
+	int size = 0;
+
+	// Receive File Size
+	uint32_t nfsize;
+	if ((size = recv(s, &nfsize, sizeof(nfsize), 0)) < 0) {
+		fprintf(stderr, "Error Receiving Server Acknowledgement");
+		return;
+	}
+	int fsize = ntohl(nfsize);
+	fprintf(stdout, "Rcv FSize: %d\n", fsize);
+
+	// Check Size
+	if (fsize < 0) {
+		fprintf(stdout, "File Doesn't Exist\n");
+		return;
+	}
+
+	// Receive MD5
+	char nmd5[BUFSIZ];
+	if ((size = recv(s, &nmd5, sizeof(nmd5), 0)) < 0) {
+		perror("Error Receiving Server MD5");
+		return;
+	}
+	printf("Net Hash: %s\n", nmd5);
+
+	// Initialize File
+	FILE * fp = fopen(fname, "w");
+	if (!fp) {
+		fprintf(stderr, "Unable to create file\n");
+		return;
+	}
+
+  // Receive File
+	char file_content[BUFSIZ]; int rcv_size;
+	struct timeval begin, end;
+	gettimeofday(&begin, NULL);
+	int bsize = fsize;
+	while (bsize > 0) {
+		// Receive Content
+		int temp = (bsize > sizeof(file_content)) ? sizeof(file_content) : bsize;
+		bzero((char *)&file_content, sizeof(file_content));
+		if((rcv_size = recv(s, file_content, temp, 0)) == -1){
+			fprintf(stderr, "Error recieving file name\n");
+			return;
+		}
+		bsize -= rcv_size;
+		fflush(stdout);
+
+		// Write Content to File
+		if (fwrite(file_content, 1, rcv_size, fp) != rcv_size) {
+			fprintf(stderr, "Error writing to file\n");
+			return;
+		}
+	}
+	gettimeofday(&end, NULL);
+	float time = ((double) (end.tv_usec - begin.tv_usec) / 1000000 + (double) (end.tv_sec - begin.tv_sec));
+	fclose(fp);
+
+  // Compute Throughput
+  float tp = (double)fsize / (double)time / 1000000;
+
+	// Perform MD5 Hash
+	char command[BUFSIZ]; char md5hash[BUFSIZ];
+	sprintf(command, "md5sum %s", fname);
+	fp = popen(command, "r");
+	fread(md5hash, 1, sizeof(md5hash), fp);
+	pclose(fp);
+	char *cmd5 = strtok(md5hash, " \t\n");
+	printf("Hash: %s\n", cmd5);
+	printf("Net Hash: %s\n", nmd5);
+	
+	// Check MD5 Hash
+	double secs = fsize / tp / 1000000;
+	if (!strcmp(cmd5, nmd5)) {
+		fprintf(stdout, "%d bytes transferred in %lf seconds: %f Megabytes/sec\n", fsize, secs, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", cmd5);
+	} else
+		fprintf(stderr, "Unable to perform DOWNLOAD\n");
+	
 }
 
 void ls(int s){ // ------------------------------------------------ LS 
@@ -239,6 +329,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* DN */
     else if(!strcmp(cmd, "DN")) {
+			download(s, name);
 
     }
 
