@@ -24,7 +24,7 @@ rreutima, jquinn13, pbald
  * @param  s      Socket number
  * @param  fname  File name
  */
-void upload(int s, char* fname) {
+void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 
 	int size = 0;
 
@@ -55,7 +55,7 @@ void upload(int s, char* fname) {
 		exit(1);
 	}
 	fflush(stdout);
-	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", sent, fsize);
+	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", size, fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -130,7 +130,7 @@ void upload(int s, char* fname) {
  * @param  s      Socket number
  * @param  fname  File name
  */
-void download(int s, char* fname) {
+void download(int s, char* fname) { // --------------------------------- DOWNLOAD
 
 	int size = 0;
 
@@ -216,7 +216,7 @@ void download(int s, char* fname) {
  * @param  s      Socket number
  * @param  dname  Directory name
  */
-void makedir(int s, char *dname) {
+void makedir(int s, char *dname) { // ------------------------------- MAKEDIR
 
 	// Get Result Back
 	uint32_t nresult;
@@ -271,19 +271,28 @@ void removeDir(int s){ // ------------------------------------ RMDIR
   printf("Running RMDIR\n");
 
   int recv_size = 0;
-  int status;
-  if((recv_size = recv(s, &status, sizeof status, 0)) < 0){
+  uint32_t nstatus;
+  if((recv_size = recv(s, &nstatus, sizeof nstatus, 0)) < 0){
     perror("Error recieving confirmation status\n");
   }
 
+  int status = ntohl(nstatus);
   if (status == 1){
 
     // get confirmation from user
-    char usr[4];
-    fgets(usr, 4, stdin);
+    char usr[BUFSIZ];
+    fgets(usr, BUFSIZ, stdin);
+    printf("User response: %s\n", usr);
 
     int sent_1 = 0;
-    if((sent_1 = send(s, usr, 4, 0)) < 0){
+    int len = strlen(usr) + 1;
+    int converted_len = ntohl(len);
+    if((sent_1 = send(s, converted_len, sizeof converted_len, 0)) < 0){
+      perror("Error sending user length confirmation\n");
+      exit(1);
+    }
+
+    if((sent_1 = send(s, usr, strlen(usr) + 1, 0)) < 0){
       perror("Error sending user confirmation\n");
       exit(1);
     }

@@ -21,7 +21,7 @@ rreutima, jquinn13, pbald
 #define MAX_LINE 4096
 #define MAX_PENDING 5
 
-int check_file(char* filename){
+int check_file(char* filename){ // ------------------------------------ check file
   struct stat path_stat;
   stat(filename, &path_stat);
 
@@ -31,7 +31,7 @@ int check_file(char* filename){
   return 0;
 }
 
-int is_directory(const char *path) {
+int is_directory(const char *path) { // -------------------------------------- is directory
 
     struct stat path_stat;
     if(stat(path, &path_stat) < 0)
@@ -44,7 +44,7 @@ int is_directory(const char *path) {
     return 0;
 }
 
-void get_len_and_filename(int new_s, uint16_t *len, char name[]){
+void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // ----------------- len and filename
 	int size = 0;
 
   // Receive Filename Length
@@ -67,8 +67,6 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   }
 
   printf("Recieved %d bytes", size);
-
-
 }
 
 /*
@@ -77,7 +75,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
  * --
  * @param  new_s  Socket Descriptor
  */
-void upload(int new_s) {
+void upload(int new_s) { // --------------------------------------- UPLOAD
 
 	int size = 0;
 
@@ -166,7 +164,7 @@ void upload(int new_s) {
  * --
  * @param  s  Socket Descriptor
  */
-void download(int s) {
+void download(int s) { // ---------------------------------------- DOWNLOAD
 
 	int size = 0;
 
@@ -249,7 +247,7 @@ void download(int s) {
  * --
  * @param  s  Socket Descriptor
  */
-void makedir(int s) {
+void makedir(int s) { // ----------------------------------- MKDIR
 
 	int status, nstatus;
 
@@ -290,7 +288,7 @@ void makedir(int s) {
 
 }
 
-void ls(int new_s){
+void ls(int new_s){ // --------------------------------------------- LS
 
   DIR* dir = opendir(".");
   if(!dir) {
@@ -338,7 +336,7 @@ void ls(int new_s){
 
 }
 
-int is_empty(char* dirName){
+int is_empty(char* dirName){ // --------------------------- directory is empty
 
   int n = 0;
   struct dirent *d;
@@ -379,6 +377,7 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
     if(is_empty(dirName)){
       // send back 1
       int sent_1 = 0; int exists_empty = 1;
+      int exists_empty_converted = htonl(exists_empty);
       if((sent_1 = send(new_s, &exists_empty, sizeof exists_empty, 0)) < 0){
         perror("Error sending exists empty response\n");
         exit(1);
@@ -386,11 +385,17 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
 
       // see if client responds with yes or no
       int recv_size = 0;
-      char buf[4];
-      if((recv_size = recv(new_s, buf, 4, 0)) < 0){
+      char buf[BUFSIZ]; int recv_len;
+      if((recv_size = recv(new_s, recv_len, sizeof recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       }
+      recv_len = htonl(recv_len);
+
+      if((recv_size = recv(new_s, buf, recv_len, 0)) < 0){
+        perror("Error recieving client rmdir response\n");
+        exit(1);
+      } 
 
       if(!strncmp(buf, "Yes", 3)){
         int status;
