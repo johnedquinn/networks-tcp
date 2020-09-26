@@ -202,6 +202,36 @@ void download(int s, char* fname) {
 	
 }
 
+/*
+ * @func   makedir
+ * @desc   makes directory on server
+ * --
+ * @param  s      Socket number
+ * @param  dname  Directory name
+ */
+void makedir(int s, char *dname) {
+
+	// Get Result Back
+	uint32_t nresult;
+	if (recv(s, &nresult, sizeof(nresult), 0) < 0) {
+		fprintf(stderr, "Error Receiving Server Status");
+		return;
+	}
+	int result = ntohl(nresult);
+	
+	// Print MKDIR Result
+	if (result == -2) {
+		fprintf(stdout, "The directory already exists on server\n");
+	} else if (result == -1) {
+		fprintf(stdout, "Error in making directory\n");
+	} else if (result == 1) {
+		fprintf(stdout, "The directory was successfully made\n");
+	} else {
+		fprintf(stdout, "Unknown response from server\n");
+	}
+
+}
+
 void ls(int s){ // ------------------------------------------------ LS 
   // recieve directory size
   uint32_t size;
@@ -369,7 +399,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* MKDIR */
     else if(!strcmp(cmd, "MKDIR")) {
-
+			makedir(s, name);
     }
 
     /* LS */ 

@@ -233,6 +233,53 @@ void download(int s) {
 
 }
 
+/*
+ * @func   makedir
+ * @desc   Performs the client requested MKDIR (make directory) operation
+ * --
+ * @param  s  Socket Descriptor
+ */
+void makedir(int s) {
+
+	int status, nstatus;
+
+  // Get Directory Name Length and Dir Name
+  char dname[BUFSIZ]; uint16_t len;
+  get_len_and_filename(s, &len, dname);
+
+	// Check if Dir Doesn't Exist
+	struct stat dstat;
+	if (stat(dname, &dstat) < 0) {
+
+		// Create Directory
+		int make_status = mkdir(dname, 0777);
+		if (!make_status) {
+			status = 1;
+			nstatus = htonl(status);
+    	if (send(s, &nstatus, sizeof(nstatus), 0) < 0) {
+      	fprintf(stderr, "Client send error!\n");
+    	}
+			return;
+		}
+
+		// Directory Make Error
+		status = -1;
+		nstatus = htonl(status);
+    if (send(s, &nstatus, sizeof(nstatus), 0) < 0) {
+     	fprintf(stderr, "Client send error!\n");
+    }
+		return;	
+	}
+
+	// Dir/File Already Exists
+	status = -2;
+	nstatus = htonl(status);
+	if (send(s, &nstatus, sizeof(nstatus), 0) < 0) {
+		fprintf(stderr, "Client send error!\n");
+	}
+
+}
+
 void ls(int new_s){
 
   DIR* dir = opendir(".");
@@ -428,6 +475,7 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "LS", 2)) {
         ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
+				makedir(new_s);
       } else if (!strncmp(buf, "RMDIR", 5)) {
       } else if (!strncmp(buf, "CD", 2)) {
         // cd(new_s);
