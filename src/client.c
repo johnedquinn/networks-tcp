@@ -234,18 +234,20 @@ void makedir(int s, char *dname) {
 
 void cd(int s){ // -------------------------------------------- CD
 
-  int status;
-
+  uint32_t status;
+  
   if((recv(s, &status, sizeof(status), 0)) < 0){
     perror("Error recieving cd return status\n");
     return;
   }
 
-  if(status == -2){
+  int converted_status = ntohl(status);
+
+  if(converted_status == -2){
     printf("The directory does not exist on server\n");
-  } else if (status == -1){
+  } else if (converted_status == -1){
     printf("Error in changing directory\n");
-  } else if (status > 0){
+  } else if (converted_status > 0){
     printf("Changed current directory\n");
   }
 
@@ -259,25 +261,29 @@ void ls(int s){ // ------------------------------------------------ LS
 		return;
 	}
   uint32_t converted_size = ntohl(size);
-  printf("Converted Size: %d\n", converted_size);
+  // printf("Converted Size: %d\n", converted_size);
 
   char buf[BUFSIZ];
-  int read = converted_size;
-  int total_read = 0;
-  while(read > 0){
-    int recv_size;
-    if((recv_size = recv(s, buf, converted_size, 0)) == -1){
-      perror("error receiving ls listing\n");
-      return;
-    }
-    printf("Recieved size: %d\n", recv_size);
-    read -= recv_size;
-    total_read += recv_size;
-    printf("New converted size = %d\n", read);
-    fprintf(stdout, "%s", buf);
-  fflush(stdout);
-  }
-  printf("Total bytes read: %d\n", total_read);
+  // int read = converted_size;
+  // int total_read = 0;
+
+  recv(s, buf, converted_size, 0);
+  printf("%s", buf); fflush(stdout);
+  // memset(buf, 0, BUFSIZ);
+  // while(read > 0){
+  //   int recv_size;
+  //   if((recv_size = recv(s, buf, converted_size, 0)) == -1){
+  //     perror("error receiving ls listing\n");
+  //     return;
+  //   }
+  //   printf("Recieved size: %d\n", recv_size);
+  //   read -= recv_size;
+  //   total_read += recv_size;
+  //   printf("New converted size = %d\n", read);
+  //   fprintf(stdout, "%s", buf);
+  // fflush(stdout);
+  // }
+  // printf("Total bytes read: %d\n", total_read);
   // printf("\n");
 }
 
@@ -351,12 +357,8 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 		  len   = strlen(name);
 
       /* Send length of name */
-<<<<<<< HEAD
-      uint16_t l = htons(len + 1);
-			fprintf(stdout, "Sending file name converted length: %d, bytes: %lu\n", l, sizeof(l));
-=======
       u_int16_t l = htons(len + 1);
->>>>>>> ab08d56a3122e94cb2f3b23ca6b1a09b8a97fe68
+      fprintf(stdout, "Sending length %lu\n", sizeof l);
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
@@ -376,11 +378,6 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* Command specific client operations */
-<<<<<<< HEAD
-    printf("Command: %s\n", cmd); fflush(stdout);
-=======
-
->>>>>>> ab08d56a3122e94cb2f3b23ca6b1a09b8a97fe68
     /* UP */
     if(!strcmp(cmd, "UP")) {
 			upload(s, name);
