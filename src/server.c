@@ -15,6 +15,7 @@ rreutima, jquinn13, pbald
 #include <netdb.h>
 #include <sys/time.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #define MAX_LINE 4096
 #define MAX_PENDING 5
@@ -60,27 +61,11 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   }
 }
 
-void download(int new_s){
-
-  char name[MAX_LINE];
-  unsigned short len;
-  get_len_and_filename(new_s, &len, name);
-  
-  if(check_file(name) == -1){
-    int sent;
-    short int status = -1;
-    if((sent = send(new_s, &status, sizeof(status), 0)) == -1){
-      perror("Error sending back -1\n");
-      exit(1);
-    }
-  }
-  
-}
-
 /*
  * @func   upload
- * @desc   NA
- * @param  new_s
+ * @desc   Performs the client requested UP (upload) operation
+ * --
+ * @param  new_s  Socket Descriptor
  */
 void upload(int new_s) {
 
@@ -162,6 +147,89 @@ void upload(int new_s) {
     perror("Server Send Error"); 
     exit(1);
   }
+
+}
+
+/*
+ * @func   download
+ * @desc   Performs the client requested DN (download) operation
+ * --
+ * @param  s  Socket Descriptor
+ */
+void download(int s) {
+
+	int size = 0;
+
+  // Get Filename Length and Filename
+  char fname[BUFSIZ]; uint16_t len;
+  get_len_and_filename(s, &len, fname);
+
+	// Check if File Exists
+	struct stat fstat; int fsize = -1;
+	if (stat(fname, &fstat) < 0) {
+		fprintf(stderr, "Unable to gather file information\n");
+		uint32_t nstat = htonl(fsize);
+		if (send(s, &nstat, sizeof(nstat), 0) < 0) {
+			fprintf(stderr, "Error sending file status\n");
+			return;
+		}
+		return;
+	}
+
+	// Get File Size
+	fsize = fstat.st_size;
+	uint32_t nfsize = htonl(fsize);
+
+	// Send File Size
+	if (send(s, &nfsize, sizeof(nfsize), 0) < 0) {
+		fprintf(stderr, "Error sending file status\n");
+		return;
+	}
+	
+	// Calculate MD5
+	FILE * fp;
+  char command[BUFSIZ]; char md5hash[BUFSIZ];
+  sprintf(command, "md5sum %s", fname);
+  fp = popen(command, "r");
+  fread(md5hash, 1, sizeof(md5hash), fp);
+  pclose(fp);
+	char *smd5 = strtok(md5hash, " \t\n");
+
+	// Send MD5
+  if((size = send(s, smd5, strlen(md5hash) + 1, 0)) == -1) {
+    perror("Server Send Error"); 
+    exit(1);
+  }
+
+  // Open File
+  fp = fopen(fname, "r");
+  if (!fp) {
+    fprintf(stderr, "Unable to open file\n");
+  }
+
+  // Read Content and Send
+	int bsize = 0;
+	bsize = fsize;
+  char buff[BUFSIZ]; int read = 1;
+  while (bsize > 0 && read > 0) {
+		memset(buff, 0, sizeof(buff));
+    // Read Content
+    read = fread(buff, 1, sizeof(buff), fp);
+    if (read == 0) {
+      fprintf(stderr, "Error reading file\n");
+      return;
+    }
+    bsize -= read;
+
+    // Send Content
+    if((size = send(s, buff, read, 0)) == -1) {
+      perror("Client send error!");
+      return;
+    }
+  }
+
+  // Close File
+  fclose(fp);
 
 }
 
