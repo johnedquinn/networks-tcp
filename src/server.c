@@ -7,6 +7,7 @@ rreutima, jquinn13, pbald
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -47,17 +48,26 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
 
   // Receive Filename Length
   uint16_t file_len;
+  printf("Recieving filename length...\n");
+  printf("Expecting %lu bytes\n", sizeof file_len);
   if((size = recv(new_s, &file_len, sizeof(file_len), 0)) < 0){
     perror("Error receiving file length");
     exit(1);
   }
   *len = ntohs(file_len);
+
+  printf("Recieved %d bytes", size);
   
   // Receive Filename
+  printf("Recieving file name...\n");
   if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
     exit(1);
   }
+
+  printf("Recieved %d bytes", size);
+
+
 }
 
 void download(int new_s){
@@ -239,10 +249,14 @@ int is_empty(char* dirName){
 }
 
 void removeDir(int new_s){ // -------------------------------------- RMDIR
+  printf("Running rmdir...\n");
 
   // Get Filename Length and Filename
   char dirName[BUFSIZ]; uint16_t len;
+  printf("Pre len and filename\n");
   get_len_and_filename(new_s, &len, dirName);
+
+  printf("Got length %d and filename %s\n", len, dirName);
 
   // check if directory to be deleted exists
   if(is_directory(dirName)){
@@ -443,6 +457,7 @@ int main(int argc, char* argv[]) {
         ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
       } else if (!strncmp(buf, "RMDIR", 5)) {
+        removeDir(new_s);
       } else if (!strncmp(buf, "CD", 2)) {
         // cd(new_s);
       } else if (!strncmp(buf, "QUIT", 4)) {

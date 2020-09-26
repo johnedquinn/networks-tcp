@@ -149,13 +149,14 @@ void ls(int s){ // ------------------------------------------------ LS
   fflush(stdout);
 }
 
-void removeDir(int s){
+void removeDir(int s){ // ------------------------------------ RMDIR
 
   // recieve confirmation
+  printf("Running RMDIR\n");
 
   int recv_size = 0;
   int status;
-  if((recv_size = recv(s, status, sizeof status, 0)) < 0){
+  if((recv_size = recv(s, &status, sizeof status, 0)) < 0){
     perror("Error recieving confirmation status\n");
   }
 
@@ -176,7 +177,7 @@ void removeDir(int s){
       // get server deletion confirmation
       int confirm_status;
       int recv_size_2;
-      if((recv_size_2 = recv(s, confirm_status, sizeof confirm_status, 0)) < 0){
+      if((recv_size_2 = recv(s, &confirm_status, sizeof confirm_status, 0)) < 0){
         perror("Error recieving deletion status\n");
         exit(1);
       }
@@ -275,13 +276,14 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
       /* Send length of name */
       u_int16_t l = htons(len + 1);
-			fprintf(stdout, "Sending file name length: %d\n", l + 1);
+			fprintf(stdout, "Sending file name length: %d, bytes: %lu\n", l, sizeof l);
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
       }
 
       /* Send name */
+      fprintf(stdout, "Sending file name: %s, bytes: %lu\n", name, strlen(name) + 1);
       if(send(s, name, strlen(name) + 1, 0) == -1) {
         perror("client send error!"); 
         exit(1);
@@ -355,7 +357,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* RMDIR */
     else if(!strcmp(cmd, "RMDIR")) {
-
+      removeDir(s);
     }
 
     /* CD */
