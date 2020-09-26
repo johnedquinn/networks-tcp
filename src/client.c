@@ -13,6 +13,7 @@ rreutima, jquinn13, pbald
 #include <netdb.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #define MAX_LINE 4096
 
@@ -33,8 +34,6 @@ void upload(int s, char* fname) {
 		perror("Error Receiving Server Acknowledgement");
 		return;
 	}
-	short ack = ntohs(nack);
-	fprintf(stdout, "ACK: Received ACK; Val: (%d); Bytes Size: (%d)\n", ack, size);
 
 	// Get File Information
 	struct stat fstat;
@@ -49,13 +48,10 @@ void upload(int s, char* fname) {
 	int hashfsize = h_fsize;
 
 	// Send File Size
-	int sent = 0;
-	if((sent = send(s, &fsize, sizeof(fsize), 0)) == -1) {
+	if((size = send(s, &fsize, sizeof(fsize), 0)) == -1) {
 		perror("Client send error!");
 		exit(1);
 	}
-	fflush(stdout);
-	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", sent, fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -65,7 +61,6 @@ void upload(int s, char* fname) {
 
 	// Read Content and Send
 	char buff[BUFSIZ]; int read = 1;
-	fprintf(stdout, "SEND:\n");
 	while (h_fsize > 0 && read != 0) {
   	bzero((char *)&buff, sizeof(buff));
 		// Read Content
@@ -74,8 +69,6 @@ void upload(int s, char* fname) {
 			fprintf(stderr, "Error reading file\n");
 			return;
 		}
-		fprintf(stdout, "  Buffer File Content: (%s)\n", buff);
-		fprintf(stdout, "  Fsize initially: (%d); Read: (%d)\n", h_fsize, read);
 		h_fsize -= read;
 
 		// Send Content
@@ -83,28 +76,10 @@ void upload(int s, char* fname) {
 			perror("Client send error!");
 			exit(1);
 		}
-		fprintf(stdout, "  Bytes Sent: (%d)\n", size);
 	}
 
 	// Close File
 	fclose(fp);
-
-	// Receive Throughput
-	uint32_t ntp;
-	if ((size = recv(s, &ntp, sizeof(ntp), 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
-	float tp = (float) ntohl(ntp);
-	fprintf(stdout, "TP: Net TP: (%d); TP: (%f); Bytes Rcvd: (%d)\n", ntp, tp, size);
-	
-	// Receive MD5 Hash
-	char md5[BUFSIZ];
-	if ((size = recv(s, &md5, sizeof(md5), 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
-	fprintf(stdout, "MD5: RCV MD5: (%s); Bytes: (%d)\n", md5, size);
 
 	// Perform MD5 Hash
 	char command[BUFSIZ]; char md5hash[BUFSIZ];
@@ -112,14 +87,148 @@ void upload(int s, char* fname) {
 	fp = popen(command, "r");
 	fread(md5hash, 1, sizeof(md5hash), fp);
 	pclose(fp);
+	char *cmd5 = strtok(md5hash, " \t\n");
+	fprintf(stdout, "Calculated: %s\n", cmd5);
+
+	// Receive Throughput
+	char ntp[BUFSIZ]; int TP_STR_SIZE = 9;
+	if ((size = recv(s, &ntp, TP_STR_SIZE, 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	float tp;
+	sscanf(ntp, "%f", &tp);
+	
+	// Receive MD5 Hash
+	char smd5[BUFSIZ];
+	if ((size = recv(s, &smd5, sizeof(smd5), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
 
 	// Check MD5 Hash
-	if (!strcmp(md5, md5hash)) {
-		fprintf(stdout, "%d bytes transferred in X seconds: %f Megabytes/sec\n", hashfsize, tp);
-		fprintf(stdout, "MD5 Hash: %s (matches)\n", md5hash);
+	double secs = hashfsize / tp / 1000000;
+	if (!strcmp(cmd5, smd5)) {
+		fprintf(stdout, "%d bytes transferred in %lf seconds: %f Megabytes/sec\n", hashfsize, secs, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", cmd5);
 	} else
 		fprintf(stderr, "Unable to perform UPLOAD\n");
 
+}
+
+/*
+ * @func   download
+ * @desc   downloads file to server
+ * --
+ * @param  s      Socket number
+ * @param  fname  File name
+ */
+void download(int s, char* fname) {
+
+	int size = 0;
+
+	// Receive File Size
+	uint32_t nfsize;
+	if ((size = recv(s, &nfsize, sizeof(nfsize), 0)) < 0) {
+		fprintf(stderr, "Error Receiving Server Acknowledgement");
+		return;
+	}
+	int fsize = ntohl(nfsize);
+
+	// Check Size
+	if (fsize < 0) {
+		fprintf(stdout, "File Doesn't Exist\n");
+		return;
+	}
+
+	// Receive MD5
+	char nmd5[BUFSIZ];
+	if ((size = recv(s, &nmd5, sizeof(nmd5), 0)) < 0) {
+		perror("Error Receiving Server MD5");
+		return;
+	}
+
+	// Initialize File
+	FILE * fp = fopen(fname, "w");
+	if (!fp) {
+		fprintf(stderr, "Unable to create file\n");
+		return;
+	}
+
+  // Receive File
+	char file_content[BUFSIZ]; int rcv_size;
+	struct timeval begin, end;
+	gettimeofday(&begin, NULL);
+	int bsize = fsize;
+	while (bsize > 0) {
+		// Receive Content
+		int temp = (bsize > sizeof(file_content)) ? sizeof(file_content) : bsize;
+		bzero((char *)&file_content, sizeof(file_content));
+		if((rcv_size = recv(s, file_content, temp, 0)) == -1){
+			fprintf(stderr, "Error recieving file name\n");
+			return;
+		}
+		bsize -= rcv_size;
+		fflush(stdout);
+
+		// Write Content to File
+		if (fwrite(file_content, 1, rcv_size, fp) != rcv_size) {
+			fprintf(stderr, "Error writing to file\n");
+			return;
+		}
+	}
+	gettimeofday(&end, NULL);
+	float time = ((double) (end.tv_usec - begin.tv_usec) / 1000000 + (double) (end.tv_sec - begin.tv_sec));
+	fclose(fp);
+
+  // Compute Throughput
+  float tp = (double)fsize / (double)time / 1000000;
+
+	// Perform MD5 Hash
+	char command[BUFSIZ]; char md5hash[BUFSIZ];
+	sprintf(command, "md5sum %s", fname);
+	fp = popen(command, "r");
+	fread(md5hash, 1, sizeof(md5hash), fp);
+	pclose(fp);
+	char *cmd5 = strtok(md5hash, " \t\n");
+	
+	// Check MD5 Hash
+	double secs = fsize / tp / 1000000;
+	if (!strcmp(cmd5, nmd5)) {
+		fprintf(stdout, "%d bytes transferred in %lf seconds: %f Megabytes/sec\n", fsize, secs, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", cmd5);
+	} else
+		fprintf(stderr, "Unable to perform DOWNLOAD\n");
+	
+}
+
+/*
+ * @func   makedir
+ * @desc   makes directory on server
+ * --
+ * @param  s      Socket number
+ * @param  dname  Directory name
+ */
+void makedir(int s, char *dname) {
+
+	// Get Result Back
+	uint32_t nresult;
+	if (recv(s, &nresult, sizeof(nresult), 0) < 0) {
+		fprintf(stderr, "Error Receiving Server Status");
+		return;
+	}
+	int result = ntohl(nresult);
+	
+	// Print MKDIR Result
+	if (result == -2) {
+		fprintf(stdout, "The directory already exists on server\n");
+	} else if (result == -1) {
+		fprintf(stdout, "Error in making directory\n");
+	} else if (result == 1) {
+		fprintf(stdout, "The directory was successfully made\n");
+	} else {
+		fprintf(stdout, "Unknown response from server\n");
+	}
 
 }
 
@@ -240,11 +349,14 @@ int main(int argc, char * argv[]) { // ----------------------------- main
       // get file name and length for appropriate commands
 		  name  = strtok(NULL, "\t\n\0 ");
 		  len   = strlen(name);
-		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
+<<<<<<< HEAD
       uint16_t l = htons(len + 1);
 			fprintf(stdout, "Sending file name converted length: %d, bytes: %lu\n", l, sizeof(l));
+=======
+      u_int16_t l = htons(len + 1);
+>>>>>>> ab08d56a3122e94cb2f3b23ca6b1a09b8a97fe68
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
@@ -264,7 +376,11 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* Command specific client operations */
+<<<<<<< HEAD
     printf("Command: %s\n", cmd); fflush(stdout);
+=======
+
+>>>>>>> ab08d56a3122e94cb2f3b23ca6b1a09b8a97fe68
     /* UP */
     if(!strcmp(cmd, "UP")) {
 			upload(s, name);
@@ -272,6 +388,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* DN */
     else if(!strcmp(cmd, "DN")) {
+			download(s, name);
 
     }
 
@@ -315,7 +432,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* MKDIR */
     else if(!strcmp(cmd, "MKDIR")) {
-
+			makedir(s, name);
     }
 
     /* LS */ 
