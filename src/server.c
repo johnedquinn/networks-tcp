@@ -214,16 +214,12 @@ void download(int s) {
   while (bsize > 0 && read > 0) {
 		memset(buff, 0, sizeof(buff));
     // Read Content
-		fprintf(stdout, "MID; BSize: %d\n", bsize);
     read = fread(buff, 1, sizeof(buff), fp);
     if (read == 0) {
       fprintf(stderr, "Error reading file\n");
       return;
     }
-
-		printf("Bsize before: %d; Read = %d\n", bsize, read);
     bsize -= read;
-		printf("BSize Now: %d\n", bsize);
 
     // Send Content
     if((size = send(s, buff, read, 0)) == -1) {
@@ -231,7 +227,6 @@ void download(int s) {
       return;
     }
   }
-	fprintf(stdout, "BYE\n");
 
   // Close File
   fclose(fp);

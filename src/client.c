@@ -134,7 +134,6 @@ void download(int s, char* fname) {
 		return;
 	}
 	int fsize = ntohl(nfsize);
-	fprintf(stdout, "Rcv FSize: %d\n", fsize);
 
 	// Check Size
 	if (fsize < 0) {
@@ -148,7 +147,6 @@ void download(int s, char* fname) {
 		perror("Error Receiving Server MD5");
 		return;
 	}
-	printf("Net Hash: %s\n", nmd5);
 
 	// Initialize File
 	FILE * fp = fopen(fname, "w");
@@ -193,8 +191,6 @@ void download(int s, char* fname) {
 	fread(md5hash, 1, sizeof(md5hash), fp);
 	pclose(fp);
 	char *cmd5 = strtok(md5hash, " \t\n");
-	printf("Hash: %s\n", cmd5);
-	printf("Net Hash: %s\n", nmd5);
 	
 	// Check MD5 Hash
 	double secs = fsize / tp / 1000000;
