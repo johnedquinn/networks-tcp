@@ -287,7 +287,7 @@ void removeDir(int s){ // ------------------------------------ RMDIR
     int sent_1 = 0;
     int len = strlen(usr) + 1;
     int converted_len = ntohl(len);
-    if((sent_1 = send(s, converted_len, sizeof converted_len, 0)) < 0){
+    if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
       perror("Error sending user length confirmation\n");
       exit(1);
     }
@@ -381,11 +381,12 @@ int main(int argc, char * argv[]) { // ----------------------------- main
   while(fgets(buf, sizeof(buf), stdin)) {
 
 		// Grab Command
-    char* cmd = strtok(buf, " \n");
+    char* cmd = strtok(buf, " ");
     char* name;
     uint16_t len;
 
     /* Send intial operation */
+    printf("command: %s!\n", cmd);
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
       exit(1);

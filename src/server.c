@@ -362,7 +362,7 @@ int is_empty(char* dirName){ // --------------------------- directory is empty
 }
 
 void removeDir(int new_s){ // -------------------------------------- RMDIR
-  printf("Running rmdir...\n");
+  printf("Running rmdir...\n"); fflush(stdout);
 
   // Get Filename Length and Filename
   char dirName[BUFSIZ]; uint16_t len;
@@ -378,15 +378,15 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
       // send back 1
       int sent_1 = 0; int exists_empty = 1;
       int exists_empty_converted = htonl(exists_empty);
-      if((sent_1 = send(new_s, &exists_empty, sizeof exists_empty, 0)) < 0){
+      if((sent_1 = send(new_s, &exists_empty_converted, sizeof exists_empty_converted, 0)) < 0){
         perror("Error sending exists empty response\n");
         exit(1);
       }
 
       // see if client responds with yes or no
       int recv_size = 0;
-      char buf[BUFSIZ]; int recv_len;
-      if((recv_size = recv(new_s, recv_len, sizeof recv_len, 0)) < 0){
+      char buf[BUFSIZ]; int recv_len = 0;
+      if((recv_size = recv(new_s, &recv_len, sizeof recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       }
@@ -578,6 +578,7 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "MKDIR", 5)) {
 				makedir(new_s);
       } else if (!strncmp(buf, "RMDIR", 5)) {
+        printf("about to run removedir\n");
         removeDir(new_s);
       } else if (!strncmp(buf, "CD", 2)) {
         // cd(new_s);
