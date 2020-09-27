@@ -351,21 +351,21 @@ void ls(int new_s) {
   int dir_size = 0;
   char tmp[BUFSIZ];
   int nread = 0;
-  while((nread = fread(&tmp, 1, BUFSIZ, fp1)) > 0){
+  while((nread = fread(tmp, 1, BUFSIZ, fp1)) > 0){
     dir_size += nread;
   }
   pclose(fp1);
 
   printf("%s", tmp);
 
-  uint32_t dir_string_size = htonl(dir_size);
+  uint32_t dir_string_size = htonl(dir_size) + 1;
 
   // send length of dir string
   if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
     printf("Error sending back dir string size\n");
   }
-
-  if(send(new_s, tmp, dir_size, 0) < 0){
+	
+  if(send(new_s, tmp, dir_size + 1, 0) < 0){
     perror("Error sending directory listing\n");
   }
   memset(tmp, 0, BUFSIZ);
