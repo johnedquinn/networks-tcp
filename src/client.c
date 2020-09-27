@@ -269,30 +269,12 @@ void ls(int s){ // ------------------------------------------------ LS
 		return;
 	}
   uint32_t converted_size = ntohl(size);
-  // printf("Converted Size: %d\n", converted_size);
 
   char buf[BUFSIZ];
-  // int read = converted_size;
-  // int total_read = 0;
 
   recv(s, buf, converted_size, 0);
   printf("%s", buf); fflush(stdout);
-  // memset(buf, 0, BUFSIZ);
-  // while(read > 0){
-  //   int recv_size;
-  //   if((recv_size = recv(s, buf, converted_size, 0)) == -1){
-  //     perror("error receiving ls listing\n");
-  //     return;
-  //   }
-  //   printf("Recieved size: %d\n", recv_size);
-  //   read -= recv_size;
-  //   total_read += recv_size;
-  //   printf("New converted size = %d\n", read);
-  //   fprintf(stdout, "%s", buf);
-  // fflush(stdout);
-  // }
-  // printf("Total bytes read: %d\n", total_read);
-  // printf("\n");
+ 
 }
 
 /*
