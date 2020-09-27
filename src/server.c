@@ -53,7 +53,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
     exit(1);
   }
   *len = ntohs(file_len);
-  
+
   // Receive Filename
   if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
@@ -73,6 +73,7 @@ void upload(int new_s) {
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
+  bzero((char *)&fname, sizeof(fname));
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment
@@ -162,6 +163,7 @@ void download(int s) {
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
+  bzero((char *)&fname, sizeof(fname));
   get_len_and_filename(s, &len, fname);
 
 	// Check if File Exists
@@ -245,6 +247,7 @@ void makedir(int s) {
 
   // Get Directory Name Length and Dir Name
   char dname[BUFSIZ]; uint16_t len;
+  bzero((char *)&dname, sizeof(dname));
   get_len_and_filename(s, &len, dname);
 
 	// Check if Dir Doesn't Exist
@@ -338,12 +341,13 @@ void ls(int new_s){
  * @func   head
  * @desc   Performs the client requested HEAD operation on the requested file
  * --
- * @param  s  Socket Descriptor
+ * @param  new_s  Socket Descriptor
  */
 void head(int new_s) {
 
   u_int16_t len = 0;
-  char name[MAX_LINE] = "";
+  char name[MAX_LINE];
+  bzero((char *)&name, sizeof(name));
   get_len_and_filename(new_s, &len, name);
         
   if(check_file(name)) {
@@ -364,6 +368,7 @@ void head(int new_s) {
     if(size == 0) {
       // Send Negative Confirmation
       short int status = -1;
+      status = htons(status);
       if(send(new_s, &status, sizeof(status), 0) == -1) {
         perror("Server Send Error"); 
         exit(1);
@@ -372,8 +377,8 @@ void head(int new_s) {
     }
 
     // Send Size
-    size = htons(size);
-    if(send(new_s, &size, sizeof(size), 0) == -1) {
+    uint32_t new_size = htons(size);
+    if(send(new_s, &new_size, sizeof(new_size), 0) == -1) {
       perror("Server Send Error"); 
       exit(1);
     }
@@ -393,15 +398,18 @@ void head(int new_s) {
           perror("Server Send Error"); 
           exit(1);
         }
+        bytes_sent += data_bytes;
       }
-      bytes_sent += data_bytes;
     }
           
     fflush(stdout);
+    fclose(fp);
 
   } else {
     // Send Negative Confirmation
     short int status = -1;
+    status = htons(status);
+    printf("Sent this %hd\n", status);
     if(send(new_s, &status, sizeof(status), 0) == -1) {
       perror("Server Send Error"); 
       exit(1);
@@ -409,17 +417,61 @@ void head(int new_s) {
   }
 }
 
-void rm(int new_s){ // ---------------------------------------- RM
+/*
+ * @func   rm
+ * @desc   Performs the client requested RM operation on the requested file
+ * --
+ * @param  new_s  Socket Descriptor
+ */
+void rm(int new_s) {
 
-  // Get Filename Length and Filename
-  char fname[BUFSIZ]; uint16_t len;
-  get_len_and_filename(new_s, &len, fname); 
+  u_int16_t len = 0;
+  char name[MAX_LINE];
+  bzero((char *)&name, sizeof(name));
+  get_len_and_filename(new_s, &len, name);
 
-  // check if file exists or not
-  // send back : 1 to confirm, -1 if dne
+  if(check_file(name)) {
 
-  // wait for confirmation from client to delete or not
+    // Send Positive Confirmation
+    short int status = 1;
+    //htons
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Error sending positive confirmation"); 
+      exit(1);
+    }
 
+    // Recieve Confirmation from Client
+    char confirmation[MAX_LINE] = "";
+    if(recv(new_s, &confirmation, sizeof(confirmation), 0) < 0) {
+      perror("Error recieving rm confirmation\n");
+      exit(1);
+    }
+
+    if(!strcmp(confirmation, "Yes")) {
+      // Delete File
+      if(remove(name) != 0) {
+        perror("Error removing file");
+        exit(1);
+      };
+
+      // Send deletion confirmation
+      short int status = 1;
+      //htons
+      if(send(new_s, &status, sizeof(status), 0) == -1) {
+        perror("Error sending positive confirmation"); 
+        exit(1);
+      }
+    }
+
+  } else {
+    // Send Negative Confirmation
+    short int status = -1;
+    //htons
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+  }
 }
 
 // @func  main
@@ -501,7 +553,7 @@ int main(int argc, char* argv[]) {
       head(new_s);
 
     } else if (!strncmp(buf, "RM", 2)) {
-
+      rm(new_s);
 
     } else if (!strncmp(buf, "LS", 2)) {
       ls(new_s);

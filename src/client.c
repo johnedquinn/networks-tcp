@@ -248,7 +248,7 @@ void ls(int s){ // ------------------------------------------------ LS
 	}
   uint32_t converted_size = ntohl(size);
 
-  char buf[BUFSIZ];
+  char buf[BUFSIZ] = "";
   int read = converted_size;
   while(read > 0){
     int recv_size;
@@ -279,6 +279,7 @@ void head(int s){
     perror("Error receiving size from server.");
 
   size = ntohs(size);
+  printf("Got this %u\n", size);
 
   if(size > 0) {
     char data[MAX_LINE] = "";
@@ -299,38 +300,51 @@ void head(int s){
       bytes_read += data_bytes;
     }
   } else {
-    printf("File does not exist on the server.");
+    printf("File does not exist on the server.\n");
   }
 }
 
 void rm(int s){
 
   int status;
-  // recv server status
-  int recv_size = 0;
-  if((recv_size = recv(s, &status, sizeof status, 0)) < 0){
+  if(recv(s, &status, sizeof(status), 0) < 0) {
     perror("Error recieving rm status\n");
     exit(1);
   }
 
-  if (status > 0){
+  if(status > 0) {
 
-    // get user input: yes or no
-    char input[BUFSIZ];
+    // Prompt user for deletion confirmation
+    printf("Are you sure? ");
+    char input[MAX_LINE];
+    fgets(input, MAX_LINE, stdin);
 
-    if(!strcmp(input, "Yes")){
-
-      // wait for server to send deletion confirmation
-
-    } else if (!strcmp(input, "No")){
-      printf("Delete abandoned by the user.\n");
-      return;
+    // Send user decision
+    if(send(s, &input, strlen(input), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
     }
 
+    if(!strncmp(input, "Yes", 3)) {
+      // Wait for deletion confirmation
+      int deleted;
+      if(recv(s, &deleted, sizeof(deleted), 0) < 0) {
+        perror("Error recieving deletion confirmation\n");
+        exit(1);
+      }
+
+      if(deleted != 1) {
+        perror("Error deleting file from server");
+      }
+
+    } else {
+      printf("Delete abandoned by the user.\n");
+    }
+
+  } else {
+    printf("File does not exist on the server.");
   }
-
 }
-
 
 int main(int argc, char * argv[]) { // ----------------------------- main
   /* Variables */
@@ -439,7 +453,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* RM */
     else if(!strcmp(cmd, "RM")) {
-
+      rm(s);
     }
 
     /* MKDIR */
