@@ -396,7 +396,7 @@ void head(int new_s) {
     while(lines < 10) {
       curr = fgetc(fp);
       if(curr == EOF) break;
-      size += sizeof(curr);
+      size++;
       if(curr == '\n') lines++;
     }
 
@@ -424,18 +424,23 @@ void head(int new_s) {
     // Send Data
     int bytes_sent = 0;
     int data_bytes = MAX_LINE;
-    while(bytes_sent < size) {
+    while (bytes_sent < size) {
       if(size - bytes_sent < MAX_LINE) {
         data_bytes = size - bytes_sent;
       }
-      if(fread(buffer, 1, data_bytes, fp) != 0) {
+      if(fread(&buffer, 1, data_bytes, fp) != 0) {
+        printf("%s\n", buffer);
+        fflush(stdout);
         if(send(new_s, buffer, data_bytes, 0) == -1) {
           perror("Server Send Error"); 
           exit(1);
         }
+        printf("%d\n", data_bytes);
         bytes_sent += data_bytes;
       }
     }
+    printf("Bytes sent: %u\n", bytes_sent);
+
           
     fflush(stdout);
     fclose(fp);
@@ -469,7 +474,7 @@ void rm(int new_s) {
 
     // Send Positive Confirmation
     short int status = 1;
-    //htons
+    status = htons(status);
     if(send(new_s, &status, sizeof(status), 0) == -1) {
       perror("Error sending positive confirmation"); 
       exit(1);
@@ -482,7 +487,7 @@ void rm(int new_s) {
       exit(1);
     }
 
-    if(!strcmp(confirmation, "Yes")) {
+    if(!strncmp(confirmation, "Yes", 3)) {
       // Delete File
       if(remove(name) != 0) {
         perror("Error removing file");
@@ -490,9 +495,9 @@ void rm(int new_s) {
       };
 
       // Send deletion confirmation
-      short int status = 1;
-      //htons
-      if(send(new_s, &status, sizeof(status), 0) == -1) {
+      short int deleted = 1;
+      deleted = htons(deleted);
+      if(send(new_s, &deleted, sizeof(deleted), 0) == -1) {
         perror("Error sending positive confirmation"); 
         exit(1);
       }
