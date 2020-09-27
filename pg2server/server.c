@@ -419,8 +419,8 @@ void head(int new_s) {
 
     if(size == 0) {
       // Send Negative Confirmation
-      short int status = -1;
-      status = htons(status);
+      int status = -1;
+      status = htonl(status);
       if(send(new_s, &status, sizeof(status), 0) == -1) {
         perror("Server Send Error"); 
         exit(1);
@@ -429,7 +429,7 @@ void head(int new_s) {
     }
 
     // Send Size
-    uint32_t new_size = htons(size);
+    uint32_t new_size = htonl(size);
     if(send(new_s, &new_size, sizeof(new_size), 0) == -1) {
       perror("Server Send Error"); 
       exit(1);
@@ -460,9 +460,8 @@ void head(int new_s) {
 
   } else {
     // Send Negative Confirmation
-    short int status = -1;
-    status = htons(status);
-    printf("Sent this %hd\n", status);
+    int status = -1;
+    status = htonl(status);
     if(send(new_s, &status, sizeof(status), 0) == -1) {
       perror("Server Send Error"); 
       exit(1);

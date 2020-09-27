@@ -290,12 +290,12 @@ void ls(int s){ // ------------------------------------------------ LS
  */
 void head(int s){ 
 
-  uint32_t size;
+  int size;
 
   if(recv(s, &size, sizeof(size), 0) < 0) 
     perror("Error receiving size from server.");
 
-  size = ntohs(size);
+  size = ntohl(size);
 
   if(size > 0) {
     char data[MAX_LINE] = "";
