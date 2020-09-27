@@ -407,6 +407,17 @@ void head(int new_s) {
       exit(1);
     }
   }
+void rm(int new_s){ // ---------------------------------------- RM
+
+  // Get Filename Length and Filename
+  char fname[BUFSIZ]; uint16_t len;
+  get_len_and_filename(new_s, &len, fname); 
+
+  // check if file exists or not
+  // send back : 1 to confirm, -1 if dne
+
+  // wait for confirmation from client to delete or not
+
 }
 
 // @func  main

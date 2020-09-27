@@ -303,6 +303,35 @@ void head(int s){
   }
 }
 
+void rm(int s){
+
+  int status;
+  // recv server status
+  int recv_size = 0;
+  if((recv_size = recv(s, &status, sizeof status, 0)) < 0){
+    perror("Error recieving rm status\n");
+    exit(1);
+  }
+
+  if (status > 0){
+
+    // get user input: yes or no
+    char input[BUFSIZ];
+
+    if(!strcmp(input, "Yes")){
+
+      // wait for server to send deletion confirmation
+
+    } else if (!stcmp(input, "No")){
+      printf("Delete abandoned by the user.\n");
+      return;
+    }
+
+  }
+
+}
+
+
 int main(int argc, char * argv[]) { // ----------------------------- main
   /* Variables */
   struct hostent *hp;
