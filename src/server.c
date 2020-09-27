@@ -280,6 +280,12 @@ void makedir(int s) {
 
 }
 
+/*
+ * @func   ls
+ * @desc   Performs the client requested LS (list contents) operation
+ * --
+ * @param  s  Socket Descriptor
+ */
 void ls(int new_s){
 
   DIR* dir = opendir(".");
@@ -327,6 +333,82 @@ void ls(int new_s){
   pclose(fp2);
 
 }
+
+/*
+ * @func   head
+ * @desc   Performs the client requested HEAD operation on the requested file
+ * --
+ * @param  s  Socket Descriptor
+ */
+void head(int new_s) {
+
+  u_int16_t len = 0;
+  char name[MAX_LINE] = "";
+  get_len_and_filename(new_s, &len, name);
+        
+  if(check_file(name)) {
+
+    FILE* fp = fopen(name, "r");
+    char curr;
+    char buffer[MAX_LINE] = "";
+    uint32_t size = 0;
+    int lines = 0;
+
+    while(lines < 10) {
+      curr = fgetc(fp);
+      if(curr == EOF) break;
+      size += sizeof(curr);
+      if(curr == '\n') lines++;
+    }
+
+    if(size == 0) {
+      // Send Negative Confirmation
+      short int status = -1;
+      if(send(new_s, &status, sizeof(status), 0) == -1) {
+        perror("Server Send Error"); 
+        exit(1);
+      }
+      return;
+    }
+
+    // Send Size
+    size = htons(size);
+    if(send(new_s, &size, sizeof(size), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+
+    rewind(fp);
+    bzero(&buffer, sizeof(buffer));
+
+    // Send Data
+    int bytes_sent = 0;
+    int data_bytes = MAX_LINE;
+    while(bytes_sent < size) {
+      if(size - bytes_sent < MAX_LINE) {
+        data_bytes = size - bytes_sent;
+      }
+      if(fread(buffer, 1, data_bytes, fp) != 0) {
+        if(send(new_s, buffer, data_bytes, 0) == -1) {
+          perror("Server Send Error"); 
+          exit(1);
+        }
+      }
+      bytes_sent += data_bytes;
+    }
+          
+    fflush(stdout);
+
+  } else {
+    // Send Negative Confirmation
+    short int status = -1;
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+  }
+}
+
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) {
@@ -378,116 +460,59 @@ int main(int argc, char* argv[]) {
 
   /* wait for connection, then receive and print text */
   socklen_t addr_len = sizeof(client_addr);
+
+  printf("Waiting for connections on port %d\n", port);
+
+  if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
+    perror("simplex-talk: accept"); 
+    exit(1);
+  }
+  
+  printf("Connection established.\n");
+
   while(1) {
-    if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
-      perror("simplex-talk: accept"); 
+    if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
+      perror("Server Received Error!"); 
       exit(1);
     }
+    if(len == 0) break;
 
-    while(1) {
-      if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
-        perror("Server Received Error!"); 
-        exit(1);
-      }
-      if(len == 0) break;
+    /* Command specific functions */
+    if (!strncmp(buf, "DN", 2)) {
+      download(new_s);
 
-      printf("TCP Server Received: %s\n", buf);
-      if (!strncmp(buf, "DN", 2)) {
-        download(new_s);
-      } else if (!strncmp(buf, "UP", 2)) {
-        upload(new_s);
-      } else if (!strncmp(buf, "HEAD", 4)) {
+    } else if (!strncmp(buf, "UP", 2)) {
+      upload(new_s);
 
-        u_int16_t len = 0;
-        char name[MAX_LINE] = "";
-        get_len_and_filename(new_s, &len, name);
-        
-        if(check_file(name)) {
+    } else if (!strncmp(buf, "HEAD", 4)) {
+      head(new_s);
 
-          FILE* fp = fopen(name, "r");
-          char curr;
-          char buffer[MAX_LINE] = "";
-          uint32_t size = 0;
-          int lines = 0;
-
-          while(lines < 10) {
-            curr = fgetc(fp);
-            if(curr == EOF) break;
-            size += sizeof(curr);
-            if(curr == '\n') lines++;
-
-          }
-
-          if(size == 0) {
-            // Send Negative Confirmation
-            fprintf(stdout, "Sending Negative Confirmation\n");
-            short int status = -1;
-            if(send(new_s, &status, sizeof(status), 0) == -1) {
-              perror("Server Send Error"); 
-              exit(1);
-            }
-            break;
-          }
-
-          // Send Size
-          fprintf(stdout, "Sending size to client: %lu\n", (unsigned long) size);
-          size = htons(size);
-          if(send(new_s, &size, sizeof(size), 0) == -1) {
-            perror("Server Send Error"); 
-            exit(1);
-          }
-
-          rewind(fp);
-          bzero(&buffer, sizeof(buffer));
-
-          // Send Data
-          fprintf(stdout, "Sending data to client\n");
+    } else if (!strncmp(buf, "RM", 2)) {
 
 
-          int bytes_sent = 0;
-          int data_bytes = MAX_LINE;
-          while(bytes_sent < size) {
-            if(size - bytes_sent < MAX_LINE) {
-              data_bytes = size - bytes_sent;
-            }
-            if(fgets(buffer, data_bytes, fp) != 0) {
-              if(send(new_s, buffer, strlen(buffer), 0) == -1) {
-                perror("Server Send Error"); 
-                exit(1);
-              }
-            }
-            bytes_sent += data_bytes;
-          }
-          
-          fflush(stdout);
+    } else if (!strncmp(buf, "LS", 2)) {
+      ls(new_s);
 
-        } else {
-          // Send Negative Confirmation
-          fprintf(stdout, "Sending Negative Confirmation\n");
-          short int status = -1;
-          if(send(new_s, &status, sizeof(status), 0) == -1) {
-            perror("Server Send Error"); 
-            exit(1);
-          }
-        }
-        
-      } else if (!strncmp(buf, "RM", 2)) {
-      } else if (!strncmp(buf, "LS", 2)) {
-        ls(new_s);
-      } else if (!strncmp(buf, "MKDIR", 5)) {
-				makedir(new_s);
-      } else if (!strncmp(buf, "RMDIR", 5)) {
-      } else if (!strncmp(buf, "CD", 2)) {
-        // cd(new_s);
-      } else if (!strncmp(buf, "QUIT", 4)) {
-      } else {
-        //@TODO: server_options();
-        fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
-      }
+    } else if (!strncmp(buf, "MKDIR", 5)) {
+			makedir(new_s);
+
+    } else if (!strncmp(buf, "RMDIR", 5)) {
+
+
+    } else if (!strncmp(buf, "CD", 2)) {
+      // cd(new_s);
+
+    } else if (!strncmp(buf, "QUIT", 4)) {
+
+
+    } else {
+      //@TODO: server_options();
+      fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
     }
-      printf("Client finished, close the connection!\n");
-      close(new_s);
   }
+
+  printf("Client finished, close the connection!\n");
+  close(new_s);
 
   close(s);
   return EXIT_SUCCESS;
