@@ -34,8 +34,10 @@ int check_file(char* filename){ // ------------------------------------ check fi
 int is_directory(const char *path) { // -------------------------------------- is directory
 
     struct stat path_stat;
-    if(stat(path, &path_stat) < 0)
+    if(stat(path, &path_stat) < 0){
+        printf("Stat failed\n");
         return 0;
+    }
 
     int isDir = S_ISDIR(path_stat.st_mode);
     if(isDir)
@@ -66,7 +68,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // -----------
     exit(1);
   }
 
-  printf("Recieved %d bytes", size);
+  printf("Recieved %d bytes\n", size);
 }
 
 /*
@@ -342,7 +344,7 @@ int is_empty(char* dirName){ // --------------------------- directory is empty
   struct dirent *d;
   DIR* dir = opendir(dirName);
 
-  if( dir )
+  if( !dir )
     return 0;
 
   while((d = readdir(dir)) != NULL){
@@ -351,12 +353,14 @@ int is_empty(char* dirName){ // --------------------------- directory is empty
 
   closedir(dir);
 
-  if (n <= 2){
+  printf("N: %d\n", n);
+
+  if (n > 2){
     printf("Directory not empty\n");
-    return 1;
+    return 0;
   } else {
     printf("Directory empty\n");
-    return 0;
+    return 1;
   }
 
 }
@@ -373,8 +377,10 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
 
   // check if directory to be deleted exists
   if(is_directory(dirName)){
+    printf("Is a directory\n");
     // check if dir is empty
     if(is_empty(dirName)){
+      printf("Is empty\n");
       // send back 1
       int sent_1 = 0; int exists_empty = 1;
       int exists_empty_converted = htonl(exists_empty);
@@ -385,22 +391,26 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
 
       // see if client responds with yes or no
       int recv_size = 0;
-      char buf[BUFSIZ]; int recv_len = 0;
+      char buf[BUFSIZ]; uint32_t recv_len;;
       if((recv_size = recv(new_s, &recv_len, sizeof recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       }
-      recv_len = htonl(recv_len);
+      int recv_len_converted = htonl(recv_len);
+      printf("Recived %d\n", recv_len_converted);
 
       if((recv_size = recv(new_s, buf, recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       } 
+      printf("Recived size: %d\n", recv_size);
+      printf("Yes or no: %s\n", buf);
 
       if(!strncmp(buf, "Yes", 3)){
+        printf("Recived yes\n");
         int status;
         status = rmdir(dirName);
-        
+        printf("status: %d\n", status);
         // send deletion acknowledgement
         send(new_s, &status, sizeof status, 0);
 
@@ -419,6 +429,7 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
       }
     }
   } else {
+    printf("not a directory\n");
     // send back -2
     int sent_3 = 0; int dne = -2;
     if((sent_3 = send(new_s, &dne, sizeof dne, 0)) < 0){
@@ -480,12 +491,14 @@ int main(int argc, char* argv[]) {
   /* wait for connection, then receive and print text */
   socklen_t addr_len = sizeof(client_addr);
   while(1) {
+    printf("HITTING accept\n");
     if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
       perror("simplex-talk: accept"); 
       exit(1);
     }
 
     while(1) {
+      printf("HITTING recv\n");
       if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
         perror("Server Received Error!"); 
         exit(1);
@@ -572,12 +585,13 @@ int main(int argc, char* argv[]) {
           }
         }
         
-      } else if (!strncmp(buf, "RM", 2)) {
+      } else if (!strncmp(buf, "RMDIR", 5)) {
+        removeDir(new_s);
       } else if (!strncmp(buf, "LS", 2)) {
         ls(new_s);
       } else if (!strncmp(buf, "MKDIR", 5)) {
 				makedir(new_s);
-      } else if (!strncmp(buf, "RMDIR", 5)) {
+      } else if (!strncmp(buf, "RM", 2)) {
         removeDir(new_s);
       } else if (!strncmp(buf, "CD", 2)) {
         // cd(new_s);

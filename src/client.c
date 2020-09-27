@@ -282,11 +282,13 @@ void removeDir(int s){ // ------------------------------------ RMDIR
     // get confirmation from user
     char usr[BUFSIZ];
     fgets(usr, BUFSIZ, stdin);
-    printf("User response: %s\n", usr);
+    char* usr_cmd = strtok(usr, "\n");
+    printf("User response: %s\n", usr_cmd);
 
     int sent_1 = 0;
     int len = strlen(usr) + 1;
     int converted_len = ntohl(len);
+    printf("Len: %d, Converted len: %d\n", len, converted_len);
     if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
       perror("Error sending user length confirmation\n");
       exit(1);
@@ -307,7 +309,7 @@ void removeDir(int s){ // ------------------------------------ RMDIR
         exit(1);
       }
 
-      if(confirm_status > 0){
+      if(confirm_status == 0){
         printf("Directory deleted\n");
       } else 
       printf("Failed to delete directory\n");
@@ -324,8 +326,6 @@ void removeDir(int s){ // ------------------------------------ RMDIR
     printf("The directory is not empty\n");
     return;
   }
-
-
 
 }
 
@@ -381,7 +381,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
   while(fgets(buf, sizeof(buf), stdin)) {
 
 		// Grab Command
-    char* cmd = strtok(buf, " ");
+    char* cmd = strtok(buf, " \n");
     char* name;
     uint16_t len;
 
