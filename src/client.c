@@ -48,8 +48,7 @@ void upload(int s, char* fname) {
 	int hashfsize = h_fsize;
 
 	// Send File Size
-	int sent = 0;
-	if((sent = send(s, &fsize, sizeof(fsize), 0)) == -1) {
+	if((size = send(s, &fsize, sizeof(fsize), 0)) == -1) {
 		perror("Client send error!");
 		exit(1);
 	}
@@ -65,7 +64,7 @@ void upload(int s, char* fname) {
 	while (h_fsize > 0 && read != 0) {
   	bzero((char *)&buff, sizeof(buff));
 		// Read Content
-		read = fread(buff, 1, h_fsize, fp);
+		read = fread(buff, 1, sizeof(buff), fp);
 		if (read < 0) {
 			fprintf(stderr, "Error reading file\n");
 			return;
