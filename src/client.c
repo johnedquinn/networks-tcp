@@ -291,7 +291,7 @@ void head(int s){
     perror("Error receiving size from server.");
 
   size = ntohs(size);
-  printf("Got this %u\n", size);
+  printf("Got this size: %u\n", size);
 
   if(size > 0) {
     char data[MAX_LINE] = "";
@@ -306,11 +306,14 @@ void head(int s){
       if(recv(s, data, data_bytes, 0) < 0) {
         perror("Error receiving file data from server.");
       }
+      printf("%d\n", data_bytes);
 
-      printf("%s", data);
+
+      printf("%s\n", data);
       fflush(stdout);
       bytes_read += data_bytes;
     }
+    printf("Bytes read: %u\n", bytes_read);
   } else {
     printf("File does not exist on the server.\n");
   }
@@ -318,11 +321,13 @@ void head(int s){
 
 void rm(int s){
 
-  int status;
+  short int status;
   if(recv(s, &status, sizeof(status), 0) < 0) {
     perror("Error recieving rm status\n");
     exit(1);
   }
+
+  status = ntohs(status);
 
   if(status > 0) {
 
@@ -332,18 +337,20 @@ void rm(int s){
     fgets(input, MAX_LINE, stdin);
 
     // Send user decision
-    if(send(s, &input, strlen(input), 0) == -1) {
+    if(send(s, &input, strlen(input) + 1, 0) == -1) {
       perror("Server Send Error"); 
       exit(1);
     }
 
     if(!strncmp(input, "Yes", 3)) {
       // Wait for deletion confirmation
-      int deleted;
+      short int deleted;
       if(recv(s, &deleted, sizeof(deleted), 0) < 0) {
         perror("Error recieving deletion confirmation\n");
         exit(1);
       }
+
+      deleted = ntohs(deleted);
 
       if(deleted != 1) {
         perror("Error deleting file from server");
@@ -354,7 +361,7 @@ void rm(int s){
     }
 
   } else {
-    printf("File does not exist on the server.");
+    printf("File does not exist on the server.\n");
   }
 }
 
@@ -373,8 +380,6 @@ void removeDir(int s){ // ------------------------------------ RMDIR
     char usr[BUFSIZ];
     printf("Enter Yes/No: "); fflush(stdout);
     fgets(usr, BUFSIZ, stdin);
-    char* usr_cmd = strtok(usr, "\n");
-    // printf("User response: %s", usr_cmd);
 
     int sent_1 = 0;
     int len = strlen(usr) + 1;
