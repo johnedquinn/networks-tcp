@@ -407,6 +407,8 @@ void head(int new_s) {
       exit(1);
     }
   }
+}
+
 void rm(int new_s){ // ---------------------------------------- RM
 
   // Get Filename Length and Filename

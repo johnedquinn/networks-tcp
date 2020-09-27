@@ -322,7 +322,7 @@ void rm(int s){
 
       // wait for server to send deletion confirmation
 
-    } else if (!stcmp(input, "No")){
+    } else if (!strcmp(input, "No")){
       printf("Delete abandoned by the user.\n");
       return;
     }
