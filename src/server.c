@@ -34,10 +34,8 @@ int check_file(char* filename){ // ------------------------------------ check fi
 int is_directory(const char *path) { // -------------------------------------- is directory
 
     struct stat path_stat;
-    if(stat(path, &path_stat) < 0){
-        printf("Stat failed\n");
+    if(stat(path, &path_stat) < 0)
         return 0;
-    }
 
     int isDir = S_ISDIR(path_stat.st_mode);
     if(isDir)
@@ -51,24 +49,21 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // -----------
 
   // Receive Filename Length
   uint16_t file_len;
-  printf("Recieving filename length...\n");
-  printf("Expecting %lu bytes\n", sizeof file_len);
+  printf("Recieving length of filename...\n"); 
+  printf("Sizeof file len: %lu\n", sizeof file_len);
+  fflush(stdout);
   if((size = recv(new_s, &file_len, sizeof(file_len), 0)) < 0){
     perror("Error receiving file length");
     exit(1);
   }
   *len = ntohs(file_len);
-
-  printf("Recieved %d bytes", size);
-  
   // Receive Filename
   printf("Recieving file name...\n");
   if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
     exit(1);
   }
-
-  printf("Recieved %d bytes\n", size);
+  fprintf(stdout, "Filename: (%s); Bytes Received: (%d)\n", name, size);
 }
 
 /*
@@ -77,12 +72,13 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // -----------
  * --
  * @param  new_s  Socket Descriptor
  */
-void upload(int new_s) { // --------------------------------------- UPLOAD
+void upload(int new_s) { // ----------------------------------------- UPLOAD
 
 	int size = 0;
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
+  bzero((char *)&fname, sizeof(fname));
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment
@@ -172,6 +168,7 @@ void download(int s) { // ---------------------------------------- DOWNLOAD
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
+  bzero((char *)&fname, sizeof(fname));
   get_len_and_filename(s, &len, fname);
 
 	// Check if File Exists
@@ -255,6 +252,7 @@ void makedir(int s) { // ----------------------------------- MKDIR
 
   // Get Directory Name Length and Dir Name
   char dname[BUFSIZ]; uint16_t len;
+  bzero((char *)&dname, sizeof(dname));
   get_len_and_filename(s, &len, dname);
 
 	// Check if Dir Doesn't Exist
@@ -290,7 +288,55 @@ void makedir(int s) { // ----------------------------------- MKDIR
 
 }
 
-void ls(int new_s){ // --------------------------------------------- LS
+void cd(int new_s){ // ------------------------------------------- CD
+
+  char fname[MAX_LINE]; uint16_t len;
+  get_len_and_filename(new_s, &len, fname); 
+
+  // check if dir name exists or not
+  printf("directory name is: %s\n", fname);
+
+    // if exists: 
+  if(is_directory(fname)){
+      // try to change directory 
+    int cd_status = chdir(fname);
+
+    if(cd_status == 0){
+      int c_status = htonl(1);
+      if(send(new_s, &c_status, sizeof(c_status), 0) == -1) {
+        perror("Server Send Error"); 
+        exit(1);
+      }
+
+      char* cwd; char buf[BUFSIZ];
+      cwd = getcwd(buf, BUFSIZ);
+      printf("Current working directory: %s\n", cwd);
+
+    } else {
+      int c_status = htonl(-1);
+      if(send(new_s, &c_status, sizeof(c_status), 0) == -1){
+        perror("Server send error");
+        exit(1);
+      }
+    }
+  } 
+  else { // dir does not exist
+  int c_status = htonl(-2);
+    if(send(new_s, &c_status, sizeof(c_status), 0) == -1){
+      perror("Server send error");
+      exit(1);
+    } 
+  }
+}
+
+
+/*
+ * @func   ls
+ * @desc   Performs the client requested LS (list contents) operation
+ * --
+ * @param  s  Socket Descriptor
+ */
+void ls(int new_s) {
 
   DIR* dir = opendir(".");
   if(!dir) {
@@ -303,39 +349,194 @@ void ls(int new_s){ // --------------------------------------------- LS
   fp1 = popen("ls -l", "r");
   if(!fp1){
     fprintf(stdout, "Unable to run popen on directory\n");
-    fflush(stdout);
+    // fflush(stdout);
     return;
   }
 
-  uint32_t dir_size = 0;
+  int dir_size = 0;
   char tmp[BUFSIZ];
   int nread = 0;
-  while((nread = fread(tmp, 1, sizeof tmp, fp1)) > 0){
+  while((nread = fread(&tmp, 1, BUFSIZ, fp1)) > 0){
     dir_size += nread;
   }
-
   pclose(fp1);
+
+  printf("%s", tmp);
 
   // printf("directory file length: %d\n", dir_size);
   uint32_t dir_string_size = htonl(dir_size);
-  // send lenght of dir string
+
+  // send length of dir string
   if(send(new_s, &dir_string_size, sizeof dir_string_size, 0) < 0){
     printf("Error sending back dir string size\n");
   }
 
-  FILE* fp2 = popen("ls -l", "r");
+  // printf("strlen tmp: %lu\n", strlen(tmp) + 1);
+  send(new_s, tmp, dir_size, 0);
+  memset(tmp, 0, BUFSIZ);
 
-  // @TODO loop through and send directory listing
-  char buf[BUFSIZ];
-  nread = 0;
+  // FILE* fp2 = popen("ls -l", "r");
+
+  // // @TODO loop through and send directory listing
+  // char buf[BUFSIZ];
+  // int total_sent = 0;
   // printf("Sending directory listing...\n");
-  while((nread = fread(buf, 1, dir_size, fp2)) > 0){
-    printf("%s", buf);
-    send(new_s, buf, strlen(buf), 0);
+  // nread = dir_size;
+  // int n;
+  // while(nread > 0){
+  //   if((n = fread(buf, 1, dir_size, fp2)) < 0 ){
+  //     perror("Error sending directory listing\n");
+  //     exit(1);
+  //   }
+  //   printf("n read: %d\n", n);
+  //   printf("%s\n", buf);
+  //   // fflush(stdout);
+  //   total_sent += send(new_s, buf, dir_size, 0);
+  //   nread -= n;
+  // }
+
+  // fflush(stdout);
+  // printf("Done Sending directory\n");
+  // memset(buf, 0, sizeof buf);
+  // pclose(fp2);
+
+}
+
+/*
+ * @func   head
+ * @desc   Performs the client requested HEAD operation on the requested file
+ * --
+ * @param  new_s  Socket Descriptor
+ */
+void head(int new_s) {
+
+  u_int16_t len = 0;
+  char name[MAX_LINE];
+  bzero((char *)&name, sizeof(name));
+  get_len_and_filename(new_s, &len, name);
+        
+  if(check_file(name)) {
+
+    FILE* fp = fopen(name, "r");
+    char curr;
+    char buffer[MAX_LINE] = "";
+    uint32_t size = 0;
+    int lines = 0;
+
+    while(lines < 10) {
+      curr = fgetc(fp);
+      if(curr == EOF) break;
+      size += sizeof(curr);
+      if(curr == '\n') lines++;
+    }
+
+    if(size == 0) {
+      // Send Negative Confirmation
+      short int status = -1;
+      status = htons(status);
+      if(send(new_s, &status, sizeof(status), 0) == -1) {
+        perror("Server Send Error"); 
+        exit(1);
+      }
+      return;
+    }
+
+    // Send Size
+    uint32_t new_size = htons(size);
+    if(send(new_s, &new_size, sizeof(new_size), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+
+    rewind(fp);
+    bzero(&buffer, sizeof(buffer));
+
+    // Send Data
+    int bytes_sent = 0;
+    int data_bytes = MAX_LINE;
+    while(bytes_sent < size) {
+      if(size - bytes_sent < MAX_LINE) {
+        data_bytes = size - bytes_sent;
+      }
+      if(fread(buffer, 1, data_bytes, fp) != 0) {
+        if(send(new_s, buffer, data_bytes, 0) == -1) {
+          perror("Server Send Error"); 
+          exit(1);
+        }
+        bytes_sent += data_bytes;
+      }
+    }
+          
+    fflush(stdout);
+    fclose(fp);
+
+  } else {
+    // Send Negative Confirmation
+    short int status = -1;
+    status = htons(status);
+    printf("Sent this %hd\n", status);
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
   }
+}
 
-  pclose(fp2);
+/*
+ * @func   rm
+ * @desc   Performs the client requested RM operation on the requested file
+ * --
+ * @param  new_s  Socket Descriptor
+ */
+void rm(int new_s) {
 
+  u_int16_t len = 0;
+  char name[MAX_LINE];
+  bzero((char *)&name, sizeof(name));
+  get_len_and_filename(new_s, &len, name);
+
+  if(check_file(name)) {
+
+    // Send Positive Confirmation
+    short int status = 1;
+    //htons
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Error sending positive confirmation"); 
+      exit(1);
+    }
+
+    // Recieve Confirmation from Client
+    char confirmation[MAX_LINE] = "";
+    if(recv(new_s, &confirmation, sizeof(confirmation), 0) < 0) {
+      perror("Error recieving rm confirmation\n");
+      exit(1);
+    }
+
+    if(!strcmp(confirmation, "Yes")) {
+      // Delete File
+      if(remove(name) != 0) {
+        perror("Error removing file");
+        exit(1);
+      };
+
+      // Send deletion confirmation
+      short int status = 1;
+      //htons
+      if(send(new_s, &status, sizeof(status), 0) == -1) {
+        perror("Error sending positive confirmation"); 
+        exit(1);
+      }
+    }
+
+  } else {
+    // Send Negative Confirmation
+    short int status = -1;
+    //htons
+    if(send(new_s, &status, sizeof(status), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+  }
 }
 
 int is_empty(char* dirName){ // --------------------------- directory is empty
@@ -441,7 +642,7 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
 
 // @func  main
 // @desc  Main driver for server
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) { // ------------------------------------------ Main
 
   // Grab Port from Command Line
   int port;
@@ -490,120 +691,59 @@ int main(int argc, char* argv[]) {
 
   /* wait for connection, then receive and print text */
   socklen_t addr_len = sizeof(client_addr);
+
+  printf("Waiting for connections on port %d\n", port);
+
+  if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
+    perror("simplex-talk: accept"); 
+    exit(1);
+  }
+  
+  printf("Connection established.\n");
+
   while(1) {
-    printf("HITTING accept\n");
-    if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
-      perror("simplex-talk: accept"); 
+    if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
+      perror("Server Received Error!"); 
       exit(1);
     }
+    if(len == 0) break;
 
-    while(1) {
-      printf("HITTING recv\n");
-      if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
-        perror("Server Received Error!"); 
-        exit(1);
-      }
-      if(len == 0) break;
+    /* Command specific functions */
+    if (!strncmp(buf, "DN", 2)) {
+      download(new_s);
 
-      printf("TCP Server Received: %s\n", buf);
-      if (!strncmp(buf, "DN", 2)) {
-        download(new_s);
-      } else if (!strncmp(buf, "UP", 2)) {
-        upload(new_s);
-      } else if (!strncmp(buf, "HEAD", 4)) {
+    } else if (!strncmp(buf, "UP", 2)) {
+      upload(new_s);
 
-        u_int16_t len = 0;
-        char name[MAX_LINE] = "";
-        get_len_and_filename(new_s, &len, name);
-        
-        if(check_file(name)) {
+    } else if (!strncmp(buf, "HEAD", 4)) {
+      head(new_s);
 
-          FILE* fp = fopen(name, "r");
-          char curr;
-          char buffer[MAX_LINE] = "";
-          uint32_t size = 0;
-          int lines = 0;
+    } else if (!strncmp(buf, "RMDIR", 5)) {
+      removeDir(new_s);
 
-          while(lines < 10) {
-            curr = fgetc(fp);
-            if(curr == EOF) break;
-            size += sizeof(curr);
-            if(curr == '\n') lines++;
+    } else if (!strncmp(buf, "LS", 2)) {
+      ls(new_s);
 
-          }
+    } else if (!strncmp(buf, "MKDIR", 5)) {
+			makedir(new_s);
 
-          if(size == 0) {
-            // Send Negative Confirmation
-            fprintf(stdout, "Sending Negative Confirmation\n");
-            short int status = -1;
-            if(send(new_s, &status, sizeof(status), 0) == -1) {
-              perror("Server Send Error"); 
-              exit(1);
-            }
-            break;
-          }
+    } else if (!strncmp(buf, "RM", 2)) {
+      rm(new_s);
 
-          // Send Size
-          fprintf(stdout, "Sending size to client: %lu\n", (unsigned long) size);
-          size = htons(size);
-          if(send(new_s, &size, sizeof(size), 0) == -1) {
-            perror("Server Send Error"); 
-            exit(1);
-          }
+    } else if (!strncmp(buf, "CD", 2)) {
+      cd(new_s);
 
-          rewind(fp);
-          bzero(&buffer, sizeof(buffer));
-
-          // Send Data
-          fprintf(stdout, "Sending data to client\n");
+    } else if (!strncmp(buf, "QUIT", 4)) {
 
 
-          int bytes_sent = 0;
-          int data_bytes = MAX_LINE;
-          while(bytes_sent < size) {
-            if(size - bytes_sent < MAX_LINE) {
-              data_bytes = size - bytes_sent;
-            }
-            if(fgets(buffer, data_bytes, fp) != 0) {
-              if(send(new_s, buffer, strlen(buffer), 0) == -1) {
-                perror("Server Send Error"); 
-                exit(1);
-              }
-            }
-            bytes_sent += data_bytes;
-          }
-          
-          fflush(stdout);
-
-        } else {
-          // Send Negative Confirmation
-          fprintf(stdout, "Sending Negative Confirmation\n");
-          short int status = -1;
-          if(send(new_s, &status, sizeof(status), 0) == -1) {
-            perror("Server Send Error"); 
-            exit(1);
-          }
-        }
-        
-      } else if (!strncmp(buf, "RMDIR", 5)) {
-        removeDir(new_s);
-      } else if (!strncmp(buf, "LS", 2)) {
-        ls(new_s);
-      } else if (!strncmp(buf, "MKDIR", 5)) {
-				makedir(new_s);
-      } else if (!strncmp(buf, "RM", 2)) {
-        removeDir(new_s);
-      } else if (!strncmp(buf, "CD", 2)) {
-        // cd(new_s);
-      } else if (!strncmp(buf, "QUIT", 4)) {
-      } else {
-        //@TODO: server_options();
-        fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
-      }
+    } else {
+      //@TODO: server_options();
+      fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
     }
-      printf("Client finished, close the connection!\n");
-      close(new_s);
   }
+
+  printf("Client finished, close the connection!\n");
+  close(new_s);
 
   close(s);
   return EXIT_SUCCESS;
