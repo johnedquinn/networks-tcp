@@ -418,18 +418,14 @@ void head(int new_s) {
         data_bytes = size - bytes_sent;
       }
       if(fread(&buffer, 1, data_bytes, fp) != 0) {
-        printf("%s\n", buffer);
-        fflush(stdout);
         if(send(new_s, buffer, data_bytes, 0) == -1) {
           perror("Server Send Error"); 
           exit(1);
         }
-        printf("%d\n", data_bytes);
         bytes_sent += data_bytes;
+        bzero((char *)&buffer, sizeof(buffer));
       }
     }
-    printf("Bytes sent: %u\n", bytes_sent);
-
           
     fflush(stdout);
     fclose(fp);
@@ -638,56 +634,53 @@ int main(int argc, char* argv[]) { // ------------------------------------------
 
   printf("Waiting for connections on port %d\n", port);
 
-  if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
-    perror("simplex-talk: accept"); 
-    exit(1);
-  }
-  
-  printf("Connection established.\n");
-
   while(1) {
-    if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
-      perror("Server Received Error!"); 
+
+    if((new_s = accept(s, (struct sockaddr *)&client_addr, &addr_len)) < 0) {
+      perror("simplex-talk: accept"); 
       exit(1);
     }
-    if(len == 0) break;
 
-    /* Command specific functions */
-    if (!strncmp(buf, "DN", 2)) {
-      download(new_s);
+    printf("Connection established.\n");
 
-    } else if (!strncmp(buf, "UP", 2)) {
-      upload(new_s);
+    while(1) {
+      if((len = recv(new_s, buf, sizeof(buf), 0)) == -1) {
+        perror("Server Received Error!"); 
+        exit(1);
+      }
+      if(len == 0) break;
 
-    } else if (!strncmp(buf, "HEAD", 4)) {
-      head(new_s);
+      /* Command specific functions */
+      if (!strncmp(buf, "DN", 2)) {
+        download(new_s);
 
-    } else if (!strncmp(buf, "RMDIR", 5)) {
-      removeDir(new_s);
+      } else if (!strncmp(buf, "UP", 2)) {
+        upload(new_s);
 
-    } else if (!strncmp(buf, "LS", 2)) {
-      ls(new_s);
+      } else if (!strncmp(buf, "HEAD", 4)) {
+        head(new_s);
 
-    } else if (!strncmp(buf, "MKDIR", 5)) {
-			makedir(new_s);
+      } else if (!strncmp(buf, "RMDIR", 5)) {
+        removeDir(new_s);
 
-    } else if (!strncmp(buf, "RM", 2)) {
-      rm(new_s);
+      } else if (!strncmp(buf, "LS", 2)) {
+        ls(new_s);
 
-    } else if (!strncmp(buf, "CD", 2)) {
-      cd(new_s);
+      } else if (!strncmp(buf, "MKDIR", 5)) {
+	  		makedir(new_s);
 
-    } else if (!strncmp(buf, "QUIT", 4)) {
+      } else if (!strncmp(buf, "RM", 2)) {
+        rm(new_s);
 
+      } else if (!strncmp(buf, "CD", 2)) {
+        cd(new_s);
 
-    } else {
-      //@TODO: server_options();
-      fprintf(stderr, "Option Doesn't Exist: %s!\n", buf);
+      }
     }
-  }
 
-  printf("Client finished, close the connection!\n");
-  close(new_s);
+    printf("Client finished, close the connection!\n");
+    close(new_s);
+  }
 
   close(s);
   return EXIT_SUCCESS;

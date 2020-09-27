@@ -291,7 +291,6 @@ void head(int s){
     perror("Error receiving size from server.");
 
   size = ntohs(size);
-  printf("Got this size: %u\n", size);
 
   if(size > 0) {
     char data[MAX_LINE] = "";
@@ -306,14 +305,13 @@ void head(int s){
       if(recv(s, data, data_bytes, 0) < 0) {
         perror("Error receiving file data from server.");
       }
-      printf("%d\n", data_bytes);
 
-
-      printf("%s\n", data);
+      printf("%s", data);
       fflush(stdout);
       bytes_read += data_bytes;
+      bzero((char *)&data, sizeof(data));
     }
-    printf("Bytes read: %u\n", bytes_read);
+    printf("\n");
   } else {
     printf("File does not exist on the server.\n");
   }
