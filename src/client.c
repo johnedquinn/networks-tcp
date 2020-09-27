@@ -253,6 +253,13 @@ void cd(int s){ // -------------------------------------------- CD
 
 }
 
+
+/*
+ * @func   ls
+ * @desc   list items in directory
+ * --
+ * @param  s      Socket number
+ */
 void ls(int s){ // ------------------------------------------------ LS 
   // recieve directory size
   uint32_t size;
@@ -285,6 +292,87 @@ void ls(int s){ // ------------------------------------------------ LS
   // }
   // printf("Total bytes read: %d\n", total_read);
   // printf("\n");
+}
+
+/*
+ * @func   head
+ * @desc   list first 10 lines of a file
+ * --
+ * @param  s      Socket number
+ */
+void head(int s){ 
+
+  uint32_t size;
+
+  if(recv(s, &size, sizeof(size), 0) < 0) 
+    perror("Error receiving size from server.");
+
+  size = ntohs(size);
+  printf("Got this %u\n", size);
+
+  if(size > 0) {
+    char data[MAX_LINE] = "";
+    uint32_t bytes_read = 0;
+    int data_bytes = MAX_LINE;
+
+    while(bytes_read < size) {
+      if(size - bytes_read < MAX_LINE) {
+        data_bytes = size - bytes_read;
+      }
+
+      if(recv(s, data, data_bytes, 0) < 0) {
+        perror("Error receiving file data from server.");
+      }
+
+      printf("%s", data);
+      fflush(stdout);
+      bytes_read += data_bytes;
+    }
+  } else {
+    printf("File does not exist on the server.\n");
+  }
+}
+
+void rm(int s){
+
+  int status;
+  if(recv(s, &status, sizeof(status), 0) < 0) {
+    perror("Error recieving rm status\n");
+    exit(1);
+  }
+
+  if(status > 0) {
+
+    // Prompt user for deletion confirmation
+    printf("Are you sure? ");
+    char input[MAX_LINE];
+    fgets(input, MAX_LINE, stdin);
+
+    // Send user decision
+    if(send(s, &input, strlen(input), 0) == -1) {
+      perror("Server Send Error"); 
+      exit(1);
+    }
+
+    if(!strncmp(input, "Yes", 3)) {
+      // Wait for deletion confirmation
+      int deleted;
+      if(recv(s, &deleted, sizeof(deleted), 0) < 0) {
+        perror("Error recieving deletion confirmation\n");
+        exit(1);
+      }
+
+      if(deleted != 1) {
+        perror("Error deleting file from server");
+      }
+
+    } else {
+      printf("Delete abandoned by the user.\n");
+    }
+
+  } else {
+    printf("File does not exist on the server.");
+  }
 }
 
 int main(int argc, char * argv[]) { // ----------------------------- main
@@ -386,45 +474,16 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     /* DN */
     else if(!strcmp(cmd, "DN")) {
 			download(s, name);
-
     }
 
     /* HEAD */
     else if(!strcmp(cmd, "HEAD")) {
-
-      uint32_t size;
-	    if(recv(s, &size, sizeof(size), 0) < 0) perror("Error receiving size from server.");
-      size = ntohs(size);
-
-      printf("Recieved Size: %lu\n", (unsigned long) size);
-
-      if(size > 0) {
-        char data[MAX_LINE] = "";
-
-        uint32_t bytes_read = 0;
-        int data_bytes = MAX_LINE;
-
-        while(bytes_read < size) {
-          if(size - bytes_read < MAX_LINE) {
-              data_bytes = size - bytes_read;
-            }
-          if(recv(s, data, data_bytes, 0) < 0) {
-            perror("Error receiving file data from server.");
-          }
-          printf("%s", data);
-          bytes_read += data_bytes;
-          printf("%lu\n", (unsigned long) bytes_read);
-        }
-
-      } else {
-        printf("File does not exist on the server.");
-      }
-
+      head(s);
     }
 
     /* RM */
     else if(!strcmp(cmd, "RM")) {
-
+      rm(s);
     }
 
     /* MKDIR */
