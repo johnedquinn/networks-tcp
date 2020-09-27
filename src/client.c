@@ -386,14 +386,14 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     uint16_t len;
 
     /* Send intial operation */
-    printf("command: %s!\n", cmd);
+    // printf("command: %s!\n", cmd);
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
       exit(1);
     }
 
     /* Send command specific data */
-    if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strcmp(cmd, "RMDIR") || !strcmp(cmd, "CD")) {
+    if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strncmp(cmd, "RMDIR", 5) || !strcmp(cmd, "CD")) {
       
       // get file name and length for appropriate commands
 		  name  = strtok(NULL, "\t\n\0 ");
@@ -483,7 +483,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* RMDIR */
-    else if(!strcmp(cmd, "RMDIR")) {
+    else if(!strncmp(cmd, "RMDIR", 5)) {
       removeDir(s);
     }
 

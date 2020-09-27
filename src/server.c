@@ -578,7 +578,6 @@ int main(int argc, char* argv[]) {
       } else if (!strncmp(buf, "MKDIR", 5)) {
 				makedir(new_s);
       } else if (!strncmp(buf, "RMDIR", 5)) {
-        printf("about to run removedir\n");
         removeDir(new_s);
       } else if (!strncmp(buf, "CD", 2)) {
         // cd(new_s);
