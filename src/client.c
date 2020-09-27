@@ -360,9 +360,6 @@ void rm(int s){
 
 void removeDir(int s){ // ------------------------------------ RMDIR
 
-  // recieve confirmation
-  printf("Running RMDIR\n");
-
   int recv_size = 0;
   uint32_t nstatus;
   if((recv_size = recv(s, &nstatus, sizeof nstatus, 0)) < 0){
@@ -374,14 +371,15 @@ void removeDir(int s){ // ------------------------------------ RMDIR
 
     // get confirmation from user
     char usr[BUFSIZ];
+    printf("Enter Yes/No: "); fflush(stdout);
     fgets(usr, BUFSIZ, stdin);
     char* usr_cmd = strtok(usr, "\n");
-    printf("User response: %s\n", usr_cmd);
+    // printf("User response: %s", usr_cmd);
 
     int sent_1 = 0;
     int len = strlen(usr) + 1;
     int converted_len = ntohl(len);
-    printf("Len: %d, Converted len: %d\n", len, converted_len);
+    // printf("Len: %d, Converted len: %d\n", len, converted_len);
     if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
       perror("Error sending user length confirmation\n");
       exit(1);
