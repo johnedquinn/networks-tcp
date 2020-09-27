@@ -387,6 +387,7 @@ int main(int argc, char * argv[]) { // ----------------------------- main
 
     /* Send intial operation */
     // printf("command: %s!\n", cmd);
+
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
       exit(1);
