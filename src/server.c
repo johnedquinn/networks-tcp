@@ -7,6 +7,7 @@ rreutima, jquinn13, pbald
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,7 +21,7 @@ rreutima, jquinn13, pbald
 #define MAX_LINE 4096
 #define MAX_PENDING 5
 
-int check_file(char* filename){
+int check_file(char* filename){ // ------------------------------------ check file
   struct stat path_stat;
   stat(filename, &path_stat);
 
@@ -30,7 +31,7 @@ int check_file(char* filename){
   return 0;
 }
 
-int is_directory(const char *path) {
+int is_directory(const char *path) { // -------------------------------------- is directory
 
     struct stat path_stat;
     if(stat(path, &path_stat) < 0)
@@ -43,7 +44,7 @@ int is_directory(const char *path) {
     return 0;
 }
 
-void get_len_and_filename(int new_s, uint16_t *len, char name[]){
+void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // ----------------- len and filename
 	int size = 0;
 
   // Receive Filename Length
@@ -57,6 +58,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){
   }
   *len = ntohs(file_len);
   // Receive Filename
+  printf("Recieving file name...\n");
   if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
     exit(1);
@@ -160,7 +162,7 @@ void upload(int new_s) { // ----------------------------------------- UPLOAD
  * --
  * @param  s  Socket Descriptor
  */
-void download(int s) {
+void download(int s) { // ---------------------------------------- DOWNLOAD
 
 	int size = 0;
 
@@ -244,7 +246,7 @@ void download(int s) {
  * --
  * @param  s  Socket Descriptor
  */
-void makedir(int s) {
+void makedir(int s) { // ----------------------------------- MKDIR
 
 	int status, nstatus;
 
@@ -537,6 +539,107 @@ void rm(int new_s) {
   }
 }
 
+int is_empty(char* dirName){ // --------------------------- directory is empty
+
+  int n = 0;
+  struct dirent *d;
+  DIR* dir = opendir(dirName);
+
+  if( !dir )
+    return 0;
+
+  while((d = readdir(dir)) != NULL){
+    if(++n > 2) break; // dont count . and .. 
+  }
+
+  closedir(dir);
+
+  printf("N: %d\n", n);
+
+  if (n > 2){
+    printf("Directory not empty\n");
+    return 0;
+  } else {
+    printf("Directory empty\n");
+    return 1;
+  }
+
+}
+
+void removeDir(int new_s){ // -------------------------------------- RMDIR
+  printf("Running rmdir...\n"); fflush(stdout);
+
+  // Get Filename Length and Filename
+  char dirName[BUFSIZ]; uint16_t len;
+  printf("Pre len and filename\n");
+  get_len_and_filename(new_s, &len, dirName);
+
+  printf("Got length %d and filename %s\n", len, dirName);
+
+  // check if directory to be deleted exists
+  if(is_directory(dirName)){
+    printf("Is a directory\n");
+    // check if dir is empty
+    if(is_empty(dirName)){
+      printf("Is empty\n");
+      // send back 1
+      int sent_1 = 0; int exists_empty = 1;
+      int exists_empty_converted = htonl(exists_empty);
+      if((sent_1 = send(new_s, &exists_empty_converted, sizeof exists_empty_converted, 0)) < 0){
+        perror("Error sending exists empty response\n");
+        exit(1);
+      }
+
+      // see if client responds with yes or no
+      int recv_size = 0;
+      char buf[BUFSIZ]; uint32_t recv_len;;
+      if((recv_size = recv(new_s, &recv_len, sizeof recv_len, 0)) < 0){
+        perror("Error recieving client rmdir response\n");
+        exit(1);
+      }
+      int recv_len_converted = htonl(recv_len);
+      printf("Recived %d\n", recv_len_converted);
+
+      if((recv_size = recv(new_s, buf, recv_len, 0)) < 0){
+        perror("Error recieving client rmdir response\n");
+        exit(1);
+      } 
+      printf("Recived size: %d\n", recv_size);
+      printf("Yes or no: %s\n", buf);
+
+      if(!strncmp(buf, "Yes", 3)){
+        printf("Recived yes\n");
+        int status;
+        status = rmdir(dirName);
+        printf("status: %d\n", status);
+        // send deletion acknowledgement
+        send(new_s, &status, sizeof status, 0);
+
+      } else if (!strncmp(buf, "No", 2)){
+        printf("Delete abandoned by the user\n");
+      }
+        
+      return;
+
+    } else {
+      // send back -1 
+      int sent_2 = 0; int exists_full = -1;
+      if((sent_2 = send(new_s, &exists_full, sizeof exists_full, 0)) < 0){
+        perror("Error sending exists full response\n");
+        exit(1);
+      }
+    }
+  } else {
+    printf("not a directory\n");
+    // send back -2
+    int sent_3 = 0; int dne = -2;
+    if((sent_3 = send(new_s, &dne, sizeof dne, 0)) < 0){
+      perror("Error sending does not exist response\n");
+      exit(1);
+    }
+  }
+}
+
 // @func  main
 // @desc  Main driver for server
 int main(int argc, char* argv[]) { // ------------------------------------------ Main
@@ -615,8 +718,8 @@ int main(int argc, char* argv[]) { // ------------------------------------------
     } else if (!strncmp(buf, "HEAD", 4)) {
       head(new_s);
 
-    } else if (!strncmp(buf, "RM", 2)) {
-      rm(new_s);
+    } else if (!strncmp(buf, "RMDIR", 5)) {
+      removeDir(new_s);
 
     } else if (!strncmp(buf, "LS", 2)) {
       ls(new_s);
@@ -624,11 +727,11 @@ int main(int argc, char* argv[]) { // ------------------------------------------
     } else if (!strncmp(buf, "MKDIR", 5)) {
 			makedir(new_s);
 
-    } else if (!strncmp(buf, "RMDIR", 5)) {
-
+    } else if (!strncmp(buf, "RM", 2)) {
+      rm(new_s);
 
     } else if (!strncmp(buf, "CD", 2)) {
-      // cd(new_s);
+      cd(new_s);
 
     } else if (!strncmp(buf, "QUIT", 4)) {
 

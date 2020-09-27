@@ -24,7 +24,7 @@ rreutima, jquinn13, pbald
  * @param  s      Socket number
  * @param  fname  File name
  */
-void upload(int s, char* fname) {
+void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 
 	int size = 0;
 
@@ -34,6 +34,8 @@ void upload(int s, char* fname) {
 		perror("Error Receiving Server Acknowledgement");
 		return;
 	}
+	short ack = ntohs(nack);
+	fprintf(stdout, "ACK: Received ACK; Val: (%d); Bytes Size: (%d)\n", ack, size);
 
 	// Get File Information
 	struct stat fstat;
@@ -52,6 +54,8 @@ void upload(int s, char* fname) {
 		perror("Client send error!");
 		exit(1);
 	}
+	fflush(stdout);
+	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", size, fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -61,6 +65,7 @@ void upload(int s, char* fname) {
 
 	// Read Content and Send
 	char buff[BUFSIZ]; int read = 1;
+	fprintf(stdout, "SEND:\n");
 	while (h_fsize > 0 && read != 0) {
   	bzero((char *)&buff, sizeof(buff));
 		// Read Content
@@ -69,6 +74,8 @@ void upload(int s, char* fname) {
 			fprintf(stderr, "Error reading file\n");
 			return;
 		}
+		fprintf(stdout, "  Buffer File Content: (%s)\n", buff);
+		fprintf(stdout, "  Fsize initially: (%d); Read: (%d)\n", h_fsize, read);
 		h_fsize -= read;
 
 		// Send Content
@@ -76,10 +83,28 @@ void upload(int s, char* fname) {
 			perror("Client send error!");
 			exit(1);
 		}
+		fprintf(stdout, "  Bytes Sent: (%d)\n", size);
 	}
 
 	// Close File
 	fclose(fp);
+
+	// Receive Throughput
+	uint32_t ntp;
+	if ((size = recv(s, &ntp, sizeof(ntp), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	float tp = (float) ntohl(ntp);
+	fprintf(stdout, "TP: Net TP: (%d); TP: (%f); Bytes Rcvd: (%d)\n", ntp, tp, size);
+	
+	// Receive MD5 Hash
+	char md5[BUFSIZ];
+	if ((size = recv(s, &md5, sizeof(md5), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	fprintf(stdout, "MD5: RCV MD5: (%s); Bytes: (%d)\n", md5, size);
 
 	// Perform MD5 Hash
 	char command[BUFSIZ]; char md5hash[BUFSIZ];
@@ -87,32 +112,14 @@ void upload(int s, char* fname) {
 	fp = popen(command, "r");
 	fread(md5hash, 1, sizeof(md5hash), fp);
 	pclose(fp);
-	char *cmd5 = strtok(md5hash, " \t\n");
-	fprintf(stdout, "Calculated: %s\n", cmd5);
-
-	// Receive Throughput
-	char ntp[BUFSIZ]; int TP_STR_SIZE = 9;
-	if ((size = recv(s, &ntp, TP_STR_SIZE, 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
-	float tp;
-	sscanf(ntp, "%f", &tp);
-	
-	// Receive MD5 Hash
-	char smd5[BUFSIZ];
-	if ((size = recv(s, &smd5, sizeof(smd5), 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
 
 	// Check MD5 Hash
-	double secs = hashfsize / tp / 1000000;
-	if (!strcmp(cmd5, smd5)) {
-		fprintf(stdout, "%d bytes transferred in %lf seconds: %f Megabytes/sec\n", hashfsize, secs, tp);
-		fprintf(stdout, "MD5 Hash: %s (matches)\n", cmd5);
+	if (!strcmp(md5, md5hash)) {
+		fprintf(stdout, "%d bytes transferred in X seconds: %f Megabytes/sec\n", hashfsize, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", md5hash);
 	} else
 		fprintf(stderr, "Unable to perform UPLOAD\n");
+
 
 }
 
@@ -123,7 +130,7 @@ void upload(int s, char* fname) {
  * @param  s      Socket number
  * @param  fname  File name
  */
-void download(int s, char* fname) {
+void download(int s, char* fname) { // --------------------------------- DOWNLOAD
 
 	int size = 0;
 
@@ -209,7 +216,7 @@ void download(int s, char* fname) {
  * @param  s      Socket number
  * @param  dname  Directory name
  */
-void makedir(int s, char *dname) {
+void makedir(int s, char *dname) { // ------------------------------- MAKEDIR
 
 	// Get Result Back
 	uint32_t nresult;
@@ -375,6 +382,70 @@ void rm(int s){
   }
 }
 
+void removeDir(int s){ // ------------------------------------ RMDIR
+
+  // recieve confirmation
+  printf("Running RMDIR\n");
+
+  int recv_size = 0;
+  uint32_t nstatus;
+  if((recv_size = recv(s, &nstatus, sizeof nstatus, 0)) < 0){
+    perror("Error recieving confirmation status\n");
+  }
+
+  int status = ntohl(nstatus);
+  if (status == 1){
+
+    // get confirmation from user
+    char usr[BUFSIZ];
+    fgets(usr, BUFSIZ, stdin);
+    char* usr_cmd = strtok(usr, "\n");
+    printf("User response: %s\n", usr_cmd);
+
+    int sent_1 = 0;
+    int len = strlen(usr) + 1;
+    int converted_len = ntohl(len);
+    printf("Len: %d, Converted len: %d\n", len, converted_len);
+    if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
+      perror("Error sending user length confirmation\n");
+      exit(1);
+    }
+
+    if((sent_1 = send(s, usr, strlen(usr) + 1, 0)) < 0){
+      perror("Error sending user confirmation\n");
+      exit(1);
+    }
+
+    if(!strncmp(usr, "Yes", 3)){
+
+      // get server deletion confirmation
+      int confirm_status;
+      int recv_size_2;
+      if((recv_size_2 = recv(s, &confirm_status, sizeof confirm_status, 0)) < 0){
+        perror("Error recieving deletion status\n");
+        exit(1);
+      }
+
+      if(confirm_status == 0){
+        printf("Directory deleted\n");
+      } else 
+      printf("Failed to delete directory\n");
+
+    } else if (!strncmp(usr, "No", 2)){
+      printf("Delete abondoned by user\n");
+    }
+    return;
+
+  } else if (status == -1){
+    printf("The directory does not exist on the server\n");
+    return;
+  } else if (status == -2){
+    printf("The directory is not empty\n");
+    return;
+  }
+
+}
+
 int main(int argc, char * argv[]) { // ----------------------------- main
   /* Variables */
   struct hostent *hp;
@@ -432,17 +503,20 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     uint16_t len;
 
     /* Send intial operation */
+    // printf("command: %s!\n", cmd);
+
     if(send(s, cmd, strlen(cmd) + 1, 0) == -1) {
       perror("client send error!"); 
       exit(1);
     }
 
     /* Send command specific data */
-    if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strcmp(cmd, "RMDIR") || !strcmp(cmd, "CD")) {
+    if(!strcmp(cmd, "DN") || !strcmp(cmd, "UP") || !strcmp(cmd, "HEAD") || !strcmp(cmd, "RM") || !strcmp(cmd, "MKDIR") || !strncmp(cmd, "RMDIR", 5) || !strcmp(cmd, "CD")) {
       
       // get file name and length for appropriate commands
 		  name  = strtok(NULL, "\t\n\0 ");
 		  len   = strlen(name);
+		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
       u_int16_t l = htons(len + 1);
@@ -497,8 +571,8 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     }
 
     /* RMDIR */
-    else if(!strcmp(cmd, "RMDIR")) {
-
+    else if(!strncmp(cmd, "RMDIR", 5)) {
+      removeDir(s);
     }
 
     /* CD */
