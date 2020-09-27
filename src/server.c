@@ -78,7 +78,6 @@ void upload(int new_s) { // ----------------------------------------- UPLOAD
 
   // Get Filename Length and Filename
   char fname[BUFSIZ]; uint16_t len;
-  bzero((char *)&fname, sizeof(fname));
   get_len_and_filename(new_s, &len, fname);
 
   // Send Acknowledgment

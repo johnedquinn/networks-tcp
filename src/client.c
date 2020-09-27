@@ -24,7 +24,7 @@ rreutima, jquinn13, pbald
  * @param  s      Socket number
  * @param  fname  File name
  */
-void upload(int s, char* fname) { // ----------------------------------- UPLOAD
+void upload(int s, char* fname) {
 
 	int size = 0;
 
@@ -34,8 +34,6 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 		perror("Error Receiving Server Acknowledgement");
 		return;
 	}
-	short ack = ntohs(nack);
-	fprintf(stdout, "ACK: Received ACK; Val: (%d); Bytes Size: (%d)\n", ack, size);
 
 	// Get File Information
 	struct stat fstat;
@@ -50,12 +48,11 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 	int hashfsize = h_fsize;
 
 	// Send File Size
-	if((size = send(s, &fsize, sizeof(fsize), 0)) == -1) {
+	int sent = 0;
+	if((sent = send(s, &fsize, sizeof(fsize), 0)) == -1) {
 		perror("Client send error!");
 		exit(1);
 	}
-	fflush(stdout);
-	fprintf(stdout, "FSIZE: Sent Bytes: (%d); Sent FSize: (%d)\n", size, fsize);
 
 	// Open File
 	FILE *fp = fopen(fname, "r");
@@ -65,7 +62,6 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 
 	// Read Content and Send
 	char buff[BUFSIZ]; int read = 1;
-	fprintf(stdout, "SEND:\n");
 	while (h_fsize > 0 && read != 0) {
   	bzero((char *)&buff, sizeof(buff));
 		// Read Content
@@ -74,8 +70,6 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 			fprintf(stderr, "Error reading file\n");
 			return;
 		}
-		fprintf(stdout, "  Buffer File Content: (%s)\n", buff);
-		fprintf(stdout, "  Fsize initially: (%d); Read: (%d)\n", h_fsize, read);
 		h_fsize -= read;
 
 		// Send Content
@@ -83,28 +77,10 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 			perror("Client send error!");
 			exit(1);
 		}
-		fprintf(stdout, "  Bytes Sent: (%d)\n", size);
 	}
 
 	// Close File
 	fclose(fp);
-
-	// Receive Throughput
-	uint32_t ntp;
-	if ((size = recv(s, &ntp, sizeof(ntp), 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
-	float tp = (float) ntohl(ntp);
-	fprintf(stdout, "TP: Net TP: (%d); TP: (%f); Bytes Rcvd: (%d)\n", ntp, tp, size);
-	
-	// Receive MD5 Hash
-	char md5[BUFSIZ];
-	if ((size = recv(s, &md5, sizeof(md5), 0)) < 0) {
-		perror("Error Receiving Server Acknowledgement");
-		return;
-	}
-	fprintf(stdout, "MD5: RCV MD5: (%s); Bytes: (%d)\n", md5, size);
 
 	// Perform MD5 Hash
 	char command[BUFSIZ]; char md5hash[BUFSIZ];
@@ -112,14 +88,32 @@ void upload(int s, char* fname) { // ----------------------------------- UPLOAD
 	fp = popen(command, "r");
 	fread(md5hash, 1, sizeof(md5hash), fp);
 	pclose(fp);
+	char *cmd5 = strtok(md5hash, " \t\n");
+	fprintf(stdout, "Calculated: %s\n", cmd5);
+
+	// Receive Throughput
+	char ntp[BUFSIZ]; int TP_STR_SIZE = 9;
+	if ((size = recv(s, &ntp, TP_STR_SIZE, 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
+	float tp;
+	sscanf(ntp, "%f", &tp);
+	
+	// Receive MD5 Hash
+	char smd5[BUFSIZ];
+	if ((size = recv(s, &smd5, sizeof(smd5), 0)) < 0) {
+		perror("Error Receiving Server Acknowledgement");
+		return;
+	}
 
 	// Check MD5 Hash
-	if (!strcmp(md5, md5hash)) {
-		fprintf(stdout, "%d bytes transferred in X seconds: %f Megabytes/sec\n", hashfsize, tp);
-		fprintf(stdout, "MD5 Hash: %s (matches)\n", md5hash);
+	double secs = hashfsize / tp / 1000000;
+	if (!strcmp(cmd5, smd5)) {
+		fprintf(stdout, "%d bytes transferred in %lf seconds: %f Megabytes/sec\n", hashfsize, secs, tp);
+		fprintf(stdout, "MD5 Hash: %s (matches)\n", cmd5);
 	} else
 		fprintf(stderr, "Unable to perform UPLOAD\n");
-
 
 }
 
