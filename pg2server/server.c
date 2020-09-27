@@ -21,7 +21,14 @@ rreutima, jquinn13, pbald
 #define MAX_LINE 4096
 #define MAX_PENDING 5
 
-int check_file(char* filename){ // ------------------------------------ check file
+
+/*
+ * @func   check_file
+ * @desc   returns if file exists
+ * --
+ * @param  path  path to file
+ */
+int check_file(char* filename){
   struct stat path_stat;
   stat(filename, &path_stat);
 
@@ -31,7 +38,13 @@ int check_file(char* filename){ // ------------------------------------ check fi
   return 0;
 }
 
-int is_directory(const char *path) { // -------------------------------------- is directory
+/*
+ * @func   is_directory
+ * @desc   returns if dir or not
+ * --
+ * @param  path  path to dir
+ */
+int is_directory(const char *path) {
 
     struct stat path_stat;
     if(stat(path, &path_stat) < 0)
@@ -44,6 +57,14 @@ int is_directory(const char *path) { // -------------------------------------- i
     return 0;
 }
 
+/*
+ * @func   get_len_and_filename
+ * @desc   Receives length of fname and fname
+ * --
+ * @param  new_s  Socket Descriptor
+ * @param  *len   Length of fname to be modified
+ * @param  name   Holds str name
+ */
 void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // ----------------- len and filename
 	int size = 0;
 
@@ -283,6 +304,12 @@ void makedir(int s) { // ----------------------------------- MKDIR
 
 }
 
+/*
+ * @func   cd
+ * @desc   changes server directory
+ * --
+ * @param  s  socket
+ */
 void cd(int new_s){ // ------------------------------------------- CD
 
   char fname[MAX_LINE]; uint16_t len;
@@ -500,6 +527,12 @@ void rm(int new_s) {
   }
 }
 
+/*
+ * @func   is_empty
+ * @desc   returns if dir is empty
+ * --
+ * @param  path  path to dir
+ */
 int is_empty(char* dirName){ // --------------------------- directory is empty
 
   int n = 0;
@@ -519,6 +552,12 @@ int is_empty(char* dirName){ // --------------------------- directory is empty
 
 }
 
+/*
+ * @func   removeDir
+ * @desc   removes directory
+ * --
+ * @param  s  socket
+ */
 void removeDir(int new_s){ // -------------------------------------- RMDIR
 
   // Get Filename Length and Filename
@@ -581,9 +620,11 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
   }
 }
 
-// @func  main
-// @desc  Main driver for server
-int main(int argc, char* argv[]) { // ------------------------------------------ Main
+/*
+ * @func   main
+ * @desc   main driver
+ */
+int main(int argc, char* argv[]) {
 
   // Grab Port from Command Line
   int port;

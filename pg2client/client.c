@@ -232,7 +232,13 @@ void makedir(int s, char *dname) { // ------------------------------- MAKEDIR
 
 }
 
-void cd(int s){ // -------------------------------------------- CD
+/*
+ * @func   cd
+ * @desc   change dir on server
+ * --
+ * @param  s      Socket number
+ */
+void cd(int s){
 
   uint32_t status;
   
@@ -316,6 +322,12 @@ void head(int s){
   }
 }
 
+/*
+ * @func   rm
+ * @desc   rm file from server
+ * --
+ * @param  s      Socket number
+ */
 void rm(int s){
 
   short int status;
@@ -362,7 +374,13 @@ void rm(int s){
   }
 }
 
-void removeDir(int s){ // ------------------------------------ RMDIR
+/*
+ * @func   removeDir
+ * @desc   removes directory
+ * --
+ * @param  s      Socket number
+ */
+void removeDir(int s){
 
   int recv_size = 0;
   uint32_t nstatus;
@@ -423,7 +441,11 @@ void removeDir(int s){ // ------------------------------------ RMDIR
 
 }
 
-int main(int argc, char * argv[]) { // ----------------------------- main
+/*
+ * @func   main
+ * @desc   main driver
+ */
+int main(int argc, char * argv[]) {
   /* Variables */
   struct hostent *hp;
   struct sockaddr_in sin;
