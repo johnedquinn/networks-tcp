@@ -383,7 +383,7 @@ void removeDir(int s){ // ------------------------------------ RMDIR
 
     int sent_1 = 0;
     int len = strlen(usr) + 1;
-    int converted_len = ntohl(len);
+    int converted_len = htonl(len);
     // printf("Len: %d, Converted len: %d\n", len, converted_len);
     if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
       perror("Error sending user length confirmation\n");
@@ -404,6 +404,7 @@ void removeDir(int s){ // ------------------------------------ RMDIR
         perror("Error recieving deletion status\n");
         exit(1);
       }
+			confirm_status = ntohl(confirm_status);
 
       if(confirm_status == 0){
         printf("Directory deleted\n");
@@ -495,18 +496,15 @@ int main(int argc, char * argv[]) { // ----------------------------- main
       // get file name and length for appropriate commands
 		  name  = strtok(NULL, "\t\n\0 ");
 		  len   = strlen(name);
-		  fprintf(stdout, "Command: %s; Name: %s; Name Length: %d\n", cmd, name, len);
 
       /* Send length of name */
       u_int16_t l = htons(len + 1);
-      fprintf(stdout, "Sending length %lu\n", sizeof l);
       if(send(s, &l, sizeof(l), 0) == -1) {
         perror("client send error!");
         exit(1);
       }
 
       /* Send name */
-      fprintf(stdout, "Sending file name: %s, bytes: %lu\n", name, strlen(name) + 1);
       if(send(s, name, strlen(name) + 1, 0) == -1) {
         perror("client send error!"); 
         exit(1);

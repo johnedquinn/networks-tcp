@@ -49,21 +49,16 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // -----------
 
   // Receive Filename Length
   uint16_t file_len;
-  printf("Recieving length of filename...\n"); 
-  printf("Sizeof file len: %lu\n", sizeof file_len);
-  fflush(stdout);
   if((size = recv(new_s, &file_len, sizeof(file_len), 0)) < 0){
     perror("Error receiving file length");
     exit(1);
   }
   *len = ntohs(file_len);
   // Receive Filename
-  printf("Recieving file name...\n");
   if ((size = recv(new_s, name, *len, 0)) < 0){
     perror("Error recieving file name");
     exit(1);
   }
-  fprintf(stdout, "Filename: (%s); Bytes Received: (%d)\n", name, size);
 }
 
 /*
@@ -304,10 +299,6 @@ void cd(int new_s){ // ------------------------------------------- CD
         exit(1);
       }
 
-      char* cwd; char buf[BUFSIZ];
-      cwd = getcwd(buf, BUFSIZ);
-      printf("Current working directory: %s\n", cwd);
-
     } else {
       int c_status = htonl(-1);
       if(send(new_s, &c_status, sizeof(c_status), 0) == -1){
@@ -355,8 +346,6 @@ void ls(int new_s) {
     dir_size += nread;
   }
   pclose(fp1);
-
-  printf("%s", tmp);
 
   uint32_t dir_string_size = htonl(dir_size) + 1;
 
@@ -529,34 +518,21 @@ int is_empty(char* dirName){ // --------------------------- directory is empty
 
   closedir(dir);
 
-  printf("N: %d\n", n);
-
-  if (n > 2){
-    printf("Directory not empty\n");
-    return 0;
-  } else {
-    printf("Directory empty\n");
-    return 1;
-  }
+	return n <= 2;
 
 }
 
 void removeDir(int new_s){ // -------------------------------------- RMDIR
-  printf("Running rmdir...\n"); fflush(stdout);
 
   // Get Filename Length and Filename
   char dirName[BUFSIZ]; uint16_t len;
-  printf("Pre len and filename\n");
   get_len_and_filename(new_s, &len, dirName);
 
-  printf("Got length %d and filename %s\n", len, dirName);
 
   // check if directory to be deleted exists
   if(is_directory(dirName)){
-    printf("Is a directory\n");
     // check if dir is empty
     if(is_empty(dirName)){
-      printf("Is empty\n");
       // send back 1
       int sent_1 = 0; int exists_empty = 1;
       int exists_empty_converted = htonl(exists_empty);
@@ -567,47 +543,40 @@ void removeDir(int new_s){ // -------------------------------------- RMDIR
 
       // see if client responds with yes or no
       int recv_size = 0;
-      char buf[BUFSIZ]; uint32_t recv_len;;
+      char buf[BUFSIZ]; uint32_t recv_len;
       if((recv_size = recv(new_s, &recv_len, sizeof recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       }
-      int recv_len_converted = htonl(recv_len);
-      printf("Recived %d\n", recv_len_converted);
 
       if((recv_size = recv(new_s, buf, recv_len, 0)) < 0){
         perror("Error recieving client rmdir response\n");
         exit(1);
       } 
-      printf("Recived size: %d\n", recv_size);
-      printf("Yes or no: %s\n", buf);
 
       if(!strncmp(buf, "Yes", 3)){
-        printf("Recived yes\n");
         int status;
         status = rmdir(dirName);
-        printf("status: %d\n", status);
         // send deletion acknowledgement
         send(new_s, &status, sizeof status, 0);
 
-      } else if (!strncmp(buf, "No", 2)){
-        printf("Delete abandoned by the user\n");
       }
-        
+ 
       return;
 
     } else {
       // send back -1 
-      int sent_2 = 0; int exists_full = -1;
+      int sent_2 = 0; int exists_full = -2;
+			exists_full = htonl(exists_full);
       if((sent_2 = send(new_s, &exists_full, sizeof exists_full, 0)) < 0){
         perror("Error sending exists full response\n");
         exit(1);
       }
     }
   } else {
-    printf("not a directory\n");
     // send back -2
-    int sent_3 = 0; int dne = -2;
+    int sent_3 = 0; int dne = -1;
+		dne = htonl(dne);
     if((sent_3 = send(new_s, &dne, sizeof dne, 0)) < 0){
       perror("Error sending does not exist response\n");
       exit(1);
