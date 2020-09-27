@@ -232,6 +232,13 @@ void makedir(int s, char *dname) {
 
 }
 
+
+/*
+ * @func   ls
+ * @desc   list items in directory
+ * --
+ * @param  s      Socket number
+ */
 void ls(int s){ // ------------------------------------------------ LS 
   // recieve directory size
   uint32_t size;
@@ -256,6 +263,44 @@ void ls(int s){ // ------------------------------------------------ LS
 
   }
   fflush(stdout);
+}
+
+/*
+ * @func   head
+ * @desc   list first 10 lines of a file
+ * --
+ * @param  s      Socket number
+ */
+void head(int s){ 
+
+  uint32_t size;
+
+  if(recv(s, &size, sizeof(size), 0) < 0) 
+    perror("Error receiving size from server.");
+
+  size = ntohs(size);
+
+  if(size > 0) {
+    char data[MAX_LINE] = "";
+    uint32_t bytes_read = 0;
+    int data_bytes = MAX_LINE;
+
+    while(bytes_read < size) {
+      if(size - bytes_read < MAX_LINE) {
+        data_bytes = size - bytes_read;
+      }
+
+      if(recv(s, data, data_bytes, 0) < 0) {
+        perror("Error receiving file data from server.");
+      }
+
+      printf("%s", data);
+      fflush(stdout);
+      bytes_read += data_bytes;
+    }
+  } else {
+    printf("File does not exist on the server.");
+  }
 }
 
 int main(int argc, char * argv[]) { // ----------------------------- main
@@ -356,40 +401,11 @@ int main(int argc, char * argv[]) { // ----------------------------- main
     /* DN */
     else if(!strcmp(cmd, "DN")) {
 			download(s, name);
-
     }
 
     /* HEAD */
     else if(!strcmp(cmd, "HEAD")) {
-
-      uint32_t size;
-	    if(recv(s, &size, sizeof(size), 0) < 0) perror("Error receiving size from server.");
-      size = ntohs(size);
-
-      printf("Recieved Size: %lu\n", (unsigned long) size);
-
-      if(size > 0) {
-        char data[MAX_LINE] = "";
-
-        uint32_t bytes_read = 0;
-        int data_bytes = MAX_LINE;
-
-        while(bytes_read < size) {
-          if(size - bytes_read < MAX_LINE) {
-              data_bytes = size - bytes_read;
-            }
-          if(recv(s, data, data_bytes, 0) < 0) {
-            perror("Error receiving file data from server.");
-          }
-          printf("%s", data);
-          bytes_read += data_bytes;
-          printf("%lu\n", (unsigned long) bytes_read);
-        }
-
-      } else {
-        printf("File does not exist on the server.");
-      }
-
+      head(s);
     }
 
     /* RM */
