@@ -292,9 +292,6 @@ void cd(int new_s){ // ------------------------------------------- CD
   char fname[MAX_LINE]; uint16_t len;
   get_len_and_filename(new_s, &len, fname); 
 
-  // check if dir name exists or not
-  printf("directory name is: %s\n", fname);
-
     // if exists: 
   if(is_directory(fname)){
       // try to change directory 
@@ -348,7 +345,6 @@ void ls(int new_s) {
   fp1 = popen("ls -l", "r");
   if(!fp1){
     fprintf(stdout, "Unable to run popen on directory\n");
-    // fflush(stdout);
     return;
   }
 
@@ -362,7 +358,6 @@ void ls(int new_s) {
 
   printf("%s", tmp);
 
-  // printf("directory file length: %d\n", dir_size);
   uint32_t dir_string_size = htonl(dir_size);
 
   // send length of dir string
@@ -370,34 +365,10 @@ void ls(int new_s) {
     printf("Error sending back dir string size\n");
   }
 
-  // printf("strlen tmp: %lu\n", strlen(tmp) + 1);
-  send(new_s, tmp, dir_size, 0);
+  if(send(new_s, tmp, dir_size, 0) < 0){
+    perror("Error sending directory listing\n");
+  }
   memset(tmp, 0, BUFSIZ);
-
-  // FILE* fp2 = popen("ls -l", "r");
-
-  // // @TODO loop through and send directory listing
-  // char buf[BUFSIZ];
-  // int total_sent = 0;
-  // printf("Sending directory listing...\n");
-  // nread = dir_size;
-  // int n;
-  // while(nread > 0){
-  //   if((n = fread(buf, 1, dir_size, fp2)) < 0 ){
-  //     perror("Error sending directory listing\n");
-  //     exit(1);
-  //   }
-  //   printf("n read: %d\n", n);
-  //   printf("%s\n", buf);
-  //   // fflush(stdout);
-  //   total_sent += send(new_s, buf, dir_size, 0);
-  //   nread -= n;
-  // }
-
-  // fflush(stdout);
-  // printf("Done Sending directory\n");
-  // memset(buf, 0, sizeof buf);
-  // pclose(fp2);
 
 }
 

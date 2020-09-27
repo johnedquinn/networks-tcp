@@ -269,30 +269,12 @@ void ls(int s){ // ------------------------------------------------ LS
 		return;
 	}
   uint32_t converted_size = ntohl(size);
-  // printf("Converted Size: %d\n", converted_size);
 
   char buf[BUFSIZ];
-  // int read = converted_size;
-  // int total_read = 0;
 
   recv(s, buf, converted_size, 0);
   printf("%s", buf); fflush(stdout);
-  // memset(buf, 0, BUFSIZ);
-  // while(read > 0){
-  //   int recv_size;
-  //   if((recv_size = recv(s, buf, converted_size, 0)) == -1){
-  //     perror("error receiving ls listing\n");
-  //     return;
-  //   }
-  //   printf("Recieved size: %d\n", recv_size);
-  //   read -= recv_size;
-  //   total_read += recv_size;
-  //   printf("New converted size = %d\n", read);
-  //   fprintf(stdout, "%s", buf);
-  // fflush(stdout);
-  // }
-  // printf("Total bytes read: %d\n", total_read);
-  // printf("\n");
+ 
 }
 
 /*
@@ -378,9 +360,6 @@ void rm(int s){
 
 void removeDir(int s){ // ------------------------------------ RMDIR
 
-  // recieve confirmation
-  printf("Running RMDIR\n");
-
   int recv_size = 0;
   uint32_t nstatus;
   if((recv_size = recv(s, &nstatus, sizeof nstatus, 0)) < 0){
@@ -392,14 +371,15 @@ void removeDir(int s){ // ------------------------------------ RMDIR
 
     // get confirmation from user
     char usr[BUFSIZ];
+    printf("Enter Yes/No: "); fflush(stdout);
     fgets(usr, BUFSIZ, stdin);
     char* usr_cmd = strtok(usr, "\n");
-    printf("User response: %s\n", usr_cmd);
+    // printf("User response: %s", usr_cmd);
 
     int sent_1 = 0;
     int len = strlen(usr) + 1;
     int converted_len = ntohl(len);
-    printf("Len: %d, Converted len: %d\n", len, converted_len);
+    // printf("Len: %d, Converted len: %d\n", len, converted_len);
     if((sent_1 = send(s, &converted_len, sizeof converted_len, 0)) < 0){
       perror("Error sending user length confirmation\n");
       exit(1);
