@@ -67,7 +67,7 @@ void get_len_and_filename(int new_s, uint16_t *len, char name[]){ // -----------
  * --
  * @param  new_s  Socket Descriptor
  */
-void upload(int new_s) { // ----------------------------------------- UPLOAD
+void upload(int new_s) {
 
 	int size = 0;
 
@@ -105,9 +105,10 @@ void upload(int new_s) { // ----------------------------------------- UPLOAD
 	gettimeofday(&begin, NULL);
   while (fsize > 0) {
     // Receive Content
+    int temp = (fsize > sizeof(file_content)) ? sizeof(file_content) : fsize;
   	bzero((char *)&file_content, sizeof(file_content));
     int rcv_size;
-    if((rcv_size = recv(new_s, file_content, fsize, 0)) == -1){
+    if((rcv_size = recv(new_s, file_content, temp, 0)) == -1){
       perror("Error recieving file name");
       exit(1);
     }
